@@ -134,7 +134,7 @@ document.getElementById('headerDate').textContent =
   new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
 async function load() {
-  if (PROXY_URL === 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane') {
+  if (PROXY_URL === 'PLACEHOLDER_NON_UTILISE') {
     document.getElementById('syncBadge').textContent = '⚙ Proxy Firebase non configuré';
     document.getElementById('syncBadge').className = 'badge err';
     document.getElementById('alertsZone').innerHTML = `
