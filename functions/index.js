@@ -47,7 +47,6 @@ exports.pennylane = functions
       return;
     }
 
-    // Utilise process.env au lieu de functions.config() (déprécié)
     const token = process.env.PENNYLANE_TOKEN;
 
     if (!token) {
@@ -55,12 +54,18 @@ exports.pennylane = functions
       return;
     }
 
-    const endpoint = req.query.endpoint;
+    // Supporte les deux formats :
+    // - /pennylane/customer_invoices?limit=10  (path routing)
+    // - /pennylane?endpoint=customer_invoices  (query param)
+    const pathSegment = req.path.replace(/^\//, ''); // retire le / initial
+    const endpoint = pathSegment || req.query.endpoint;
+
     if (!endpoint || !ALLOWED.some(e => endpoint.startsWith(e))) {
       res.status(400).json({ error: 'Endpoint non autoris\u00e9' });
       return;
     }
 
+    // Passe tous les query params sauf endpoint
     const params = new URLSearchParams(req.query);
     params.delete('endpoint');
     const path = params.toString() ? `${endpoint}?${params}` : endpoint;
