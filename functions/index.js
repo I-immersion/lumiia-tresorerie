@@ -15,8 +15,9 @@ function pennylaneGet(token, endpoint) {
       let data = '';
       res.on('data', c => data += c);
       res.on('end', () => {
-        try { resolve({ status: res.statusCode, body: JSON.parse(data) }); }
-        catch(e) { reject(e); }
+        try {
+          resolve({ status: res.statusCode, body: JSON.parse(data) });
+        } catch(e) { reject(e); }
       });
     });
     req.on('error', reject);
@@ -25,9 +26,13 @@ function pennylaneGet(token, endpoint) {
 }
 
 const ALLOWED = [
-  'customer_invoices', 'supplier_invoices',
-  'transactions', 'bank_accounts',
-  'customers', 'suppliers', 'categories'
+  'customer_invoices',
+  'supplier_invoices',
+  'transactions',
+  'bank_accounts',
+  'customers',
+  'suppliers',
+  'categories'
 ];
 
 exports.pennylane = functions
@@ -36,13 +41,24 @@ exports.pennylane = functions
     res.set('Access-Control-Allow-Origin', 'https://i-immersion.github.io');
     res.set('Access-Control-Allow-Methods', 'GET, OPTIONS');
     res.set('Access-Control-Allow-Headers', 'Content-Type');
-    if (req.method === 'OPTIONS') { res.status(204).send(''); return; }
 
-    const token = functions.config().pennylane.token;
+    if (req.method === 'OPTIONS') {
+      res.status(204).send('');
+      return;
+    }
+
+    // Utilise process.env au lieu de functions.config() (déprécié)
+    const token = process.env.PENNYLANE_TOKEN;
+
+    if (!token) {
+      res.status(500).json({ error: 'Token Pennylane manquant' });
+      return;
+    }
+
     const endpoint = req.query.endpoint;
-
     if (!endpoint || !ALLOWED.some(e => endpoint.startsWith(e))) {
-      res.status(400).json({ error: 'Endpoint non autoris\u00e9' }); return;
+      res.status(400).json({ error: 'Endpoint non autoris\u00e9' });
+      return;
     }
 
     const params = new URLSearchParams(req.query);
