@@ -7,112 +7,146 @@
   <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
   <style>
     :root {
-      --bg: #0d0f14; --surface: #13161d; --surface2: #1a1e28;
-      --border: rgba(255,255,255,0.07); --accent: #4ade80;
-      --danger: #f87171; --warn: #fbbf24; --info: #60a5fa;
-      --text: #e8eaf0; --muted: #6b7280; --muted2: #9ca3af;
+      --bg:#0d0f14; --surface:#13161d; --surface2:#1a1e28; --surface3:#1f2330;
+      --border:rgba(255,255,255,0.07); --accent:#4ade80; --accent2:rgba(74,222,128,0.15);
+      --danger:#f87171; --warn:#fbbf24; --info:#60a5fa; --purple:#a78bfa;
+      --text:#e8eaf0; --muted:#6b7280; --muted2:#9ca3af;
     }
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; min-height:100vh; }
-    #loginScreen { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
-    .login-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:40px; width:100%; max-width:400px; }
-    .login-logo { font-family:'DM Serif Display',serif; font-size:24px; margin-bottom:8px; }
-    .login-logo span { color:var(--accent); }
-    .login-subtitle { font-size:13px; color:var(--muted2); margin-bottom:32px; }
-    .login-field { margin-bottom:16px; }
-    .login-field label { display:block; font-size:12px; color:var(--muted2); font-weight:500; letter-spacing:.5px; text-transform:uppercase; margin-bottom:8px; }
-    .login-field input { width:100%; background:var(--surface2); border:1px solid var(--border); border-radius:10px; padding:12px 16px; color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; outline:none; transition:border-color .2s; }
-    .login-field input:focus { border-color:rgba(74,222,128,0.4); }
-    .login-btn { width:100%; background:var(--accent); color:#0d0f14; border:none; border-radius:10px; padding:13px; font-family:'DM Sans',sans-serif; font-size:14px; font-weight:600; cursor:pointer; margin-top:8px; transition:opacity .2s; }
-    .login-btn:hover { opacity:.9; }
-    .login-btn:disabled { opacity:.5; cursor:not-allowed; }
-    .login-error { margin-top:14px; padding:10px 14px; background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); border-radius:8px; font-size:13px; color:var(--danger); display:none; }
-    #app { display:none; }
-    .header { display:flex; align-items:center; justify-content:space-between; padding:16px 32px 12px; border-bottom:1px solid var(--border); background:var(--surface); }
-    .header-left { display:flex; flex-direction:column; gap:2px; }
-    .logo { font-family:'DM Serif Display',serif; font-size:20px; }
-    .logo span { color:var(--accent); }
-    .header-version { font-size:0.72rem; color:var(--muted2); font-weight:600; letter-spacing:0.06em; }
-    .header-right { display:flex; align-items:center; gap:16px; }
-    .badge { font-size:11px; padding:4px 10px; border-radius:20px; }
-    .badge.loading { color:var(--muted2); background:rgba(255,255,255,0.04); border:1px solid var(--border); }
-    .badge.ok { color:var(--accent); background:rgba(74,222,128,0.1); border:1px solid rgba(74,222,128,0.2); }
-    .badge.err { color:var(--danger); background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); }
-    .logout-btn { background:transparent; border:1px solid var(--border); border-radius:8px; color:var(--muted2); font-family:'DM Sans',sans-serif; font-size:12px; padding:5px 12px; cursor:pointer; transition:all .15s; }
-    .logout-btn:hover { color:var(--text); border-color:rgba(255,255,255,0.2); }
-    .alerts { padding:16px 32px 0; display:flex; flex-direction:column; gap:8px; }
-    .alert { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-radius:10px; font-size:13px; animation:fadeIn .3s ease; }
-    .alert.danger { background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); }
-    .alert strong { display:block; font-weight:600; margin-bottom:2px; }
-    .alert span { color:var(--muted2); font-size:12px; }
-    .content { padding:24px 32px 40px; }
-    .kpis { display:grid; grid-template-columns:repeat(3,1fr); gap:16px; margin-bottom:24px; }
-    .kpi { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:20px; position:relative; overflow:hidden; transition:transform .2s; }
-    .kpi:hover { transform:translateY(-2px); }
-    .kpi-label { font-size:11px; color:var(--muted2); text-transform:uppercase; letter-spacing:.8px; font-weight:500; margin-bottom:10px; }
-    .kpi-value { font-family:'DM Serif Display',serif; font-size:30px; letter-spacing:-1px; line-height:1; }
-    .kpi-sub { font-size:12px; margin-top:8px; color:var(--muted2); }
-    .kpi-bar { position:absolute; bottom:0; left:0; right:0; height:3px; border-radius:0 0 14px 14px; }
-    .skeleton { background:var(--surface2); border-radius:6px; height:32px; width:120px; animation:pulse 1.5s infinite; }
-    .grid { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
-    .card { background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:22px; }
-    .card-title { font-size:14px; font-weight:500; margin-bottom:4px; }
-    .card-sub { font-size:12px; color:var(--muted2); margin-bottom:18px; }
-    .flux-list { display:flex; flex-direction:column; }
-    .flux-item { display:flex; align-items:center; justify-content:space-between; padding:11px 0; border-bottom:1px solid var(--border); }
-    .flux-item:last-child { border-bottom:none; }
-    .flux-left { display:flex; align-items:center; gap:11px; }
-    .flux-icon { width:32px; height:32px; border-radius:8px; display:flex; align-items:center; justify-content:center; font-size:14px; flex-shrink:0; }
-    .flux-name { font-size:13px; font-weight:500; }
-    .flux-date { font-size:11.5px; color:var(--muted2); margin-top:1px; }
-    .flux-amount { font-size:13.5px; font-weight:600; }
-    .positive { color:var(--accent); }
-    .negative { color:var(--danger); }
-    .late-color { color:var(--warn); }
-    .tag { display:inline-block; font-size:10.5px; padding:2px 8px; border-radius:4px; font-weight:600; text-transform:uppercase; letter-spacing:.5px; margin-left:6px; }
-    .tag-late { background:rgba(248,113,113,0.12); color:var(--danger); }
-    .tag-ok { background:rgba(74,222,128,0.1); color:var(--accent); }
-    .tag-soon { background:rgba(251,191,36,0.12); color:var(--warn); }
-    .tag-prev { background:rgba(96,165,250,0.1); color:var(--info); }
-    .qbubble { background:linear-gradient(135deg,rgba(74,222,128,.07),rgba(96,165,250,.04)); border:1px solid rgba(74,222,128,.18); border-radius:14px; padding:16px 18px; margin-top:16px; display:flex; align-items:flex-start; gap:14px; animation:fadeIn .4s ease; }
-    .qb-icon { width:38px; height:38px; background:rgba(74,222,128,.1); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:17px; flex-shrink:0; }
-    .qb-text p { font-size:13.5px; line-height:1.5; }
-    .qb-text strong { color:var(--accent); }
-    .qb-actions { display:flex; gap:8px; margin-top:10px; flex-wrap:wrap; }
-    .qb-btn { padding:6px 13px; border-radius:7px; font-size:12px; cursor:pointer; font-family:'DM Sans',sans-serif; font-weight:500; transition:all .15s; }
-    .qb-yes { background:var(--accent); color:#0d0f14; border:none; }
-    .qb-no { background:transparent; color:var(--muted2); border:1px solid var(--border); }
-    .empty { color:var(--muted2); font-size:13px; padding:12px 0; text-align:center; }
-    @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
-    @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
+    *{margin:0;padding:0;box-sizing:border-box;}
+    body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;min-height:100vh;}
+    /* LOGIN */
+    #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
+    .login-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:400px;}
+    .login-logo{font-family:'DM Serif Display',serif;font-size:24px;margin-bottom:8px;}
+    .login-logo span{color:var(--accent);}
+    .login-subtitle{font-size:13px;color:var(--muted2);margin-bottom:32px;}
+    .login-field{margin-bottom:16px;}
+    .login-field label{display:block;font-size:12px;color:var(--muted2);font-weight:500;letter-spacing:.5px;text-transform:uppercase;margin-bottom:8px;}
+    .login-field input{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:12px 16px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:14px;outline:none;transition:border-color .2s;}
+    .login-field input:focus{border-color:rgba(74,222,128,0.4);}
+    .login-btn{width:100%;background:var(--accent);color:#0d0f14;border:none;border-radius:10px;padding:13px;font-family:'DM Sans',sans-serif;font-size:14px;font-weight:600;cursor:pointer;margin-top:8px;transition:opacity .2s;}
+    .login-btn:hover{opacity:.9;} .login-btn:disabled{opacity:.5;cursor:not-allowed;}
+    .login-error{margin-top:14px;padding:10px 14px;background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:8px;font-size:13px;color:var(--danger);display:none;}
+    /* APP */
+    #app{display:none;}
+    .header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px 12px;border-bottom:1px solid var(--border);background:var(--surface);}
+    .header-left{display:flex;flex-direction:column;gap:2px;}
+    .logo{font-family:'DM Serif Display',serif;font-size:20px;} .logo span{color:var(--accent);}
+    .header-version{font-size:0.72rem;color:var(--muted2);font-weight:600;letter-spacing:0.06em;}
+    .header-right{display:flex;align-items:center;gap:16px;}
+    .badge{font-size:11px;padding:4px 10px;border-radius:20px;}
+    .badge.loading{color:var(--muted2);background:rgba(255,255,255,0.04);border:1px solid var(--border);}
+    .badge.ok{color:var(--accent);background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.2);}
+    .badge.err{color:var(--danger);background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);}
+    .logout-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px;cursor:pointer;transition:all .15s;}
+    .logout-btn:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
+    /* CONTENT */
+    .content{padding:24px 32px 48px;max-width:1200px;}
+    /* SECTION */
+    .section-title{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:12px;}
+    /* BANKS */
+    .banks-row{display:flex;gap:12px;overflow-x:auto;padding-bottom:4px;margin-bottom:28px;}
+    .banks-row::-webkit-scrollbar{display:none;}
+    .bank-card{flex-shrink:0;background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:16px 20px;min-width:200px;position:relative;overflow:hidden;transition:transform .2s;}
+    .bank-card:hover{transform:translateY(-2px);}
+    .bank-card.main{border-color:rgba(74,222,128,0.25);background:linear-gradient(135deg,rgba(74,222,128,0.06),var(--surface));}
+    .bank-card.total{border-color:rgba(96,165,250,0.25);background:linear-gradient(135deg,rgba(96,165,250,0.06),var(--surface));}
+    .bank-name{font-size:11px;color:var(--muted2);font-weight:500;letter-spacing:.3px;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
+    .bank-amount{font-family:'DM Serif Display',serif;font-size:22px;letter-spacing:-0.5px;line-height:1;}
+    .bank-bar{position:absolute;bottom:0;left:0;right:0;height:2px;}
+    .bank-card.main .bank-bar{background:var(--accent);}
+    .bank-card.total .bank-bar{background:var(--info);}
+    /* PERIOD SELECTOR */
+    .period-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+    .period-btns{display:flex;gap:4px;background:var(--surface2);border-radius:10px;padding:3px;}
+    .period-btn{background:none;border:none;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;padding:5px 14px;border-radius:7px;cursor:pointer;transition:all .15s;}
+    .period-btn.active{background:var(--surface);color:var(--text);box-shadow:0 1px 3px rgba(0,0,0,0.3);}
+    /* CHARTS */
+    .charts-grid{display:grid;grid-template-columns:1fr 340px;gap:16px;margin-bottom:28px;}
+    .chart-card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;}
+    .chart-card-title{font-size:13px;font-weight:500;margin-bottom:4px;}
+    .chart-card-sub{font-size:11.5px;color:var(--muted2);margin-bottom:16px;}
+    .chart-svg{width:100%;overflow:visible;}
+    /* DONUT */
+    .donut-wrap{display:flex;align-items:center;gap:20px;}
+    .donut-svg{flex-shrink:0;}
+    .legend{display:flex;flex-direction:column;gap:8px;flex:1;}
+    .legend-item{display:flex;align-items:center;gap:8px;}
+    .legend-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;}
+    .legend-label{font-size:12px;color:var(--muted2);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .legend-val{font-size:12px;font-weight:600;color:var(--text);}
+    /* KPIs */
+    .kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:16px;margin-bottom:24px;}
+    .kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:transform .2s;}
+    .kpi:hover{transform:translateY(-2px);}
+    .kpi-label{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;font-weight:500;margin-bottom:10px;}
+    .kpi-value{font-family:'DM Serif Display',serif;font-size:28px;letter-spacing:-1px;line-height:1;}
+    .kpi-sub{font-size:12px;margin-top:8px;color:var(--muted2);}
+    .kpi-bar{position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 14px 14px;}
+    .skeleton{background:var(--surface2);border-radius:6px;height:28px;width:100px;animation:pulse 1.5s infinite;}
+    /* ALERTS */
+    .alerts{display:flex;flex-direction:column;gap:8px;margin-bottom:24px;}
+    .alert{display:flex;align-items:flex-start;gap:12px;padding:12px 16px;border-radius:10px;font-size:13px;animation:fadeIn .3s ease;}
+    .alert.danger{background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);}
+    .alert strong{display:block;font-weight:600;margin-bottom:2px;}
+    .alert span{color:var(--muted2);font-size:12px;}
+    /* TRANSACTIONS */
+    .tx-list{background:var(--surface);border:1px solid var(--border);border-radius:14px;overflow:hidden;}
+    .tx-header{padding:16px 20px 14px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+    .tx-header-title{font-size:13px;font-weight:500;}
+    .tx-header-sub{font-size:11.5px;color:var(--muted2);}
+    .tx-item{display:flex;align-items:center;gap:12px;padding:11px 20px;border-bottom:1px solid var(--border);}
+    .tx-item:last-child{border-bottom:none;}
+    .tx-icon{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+    .tx-label{font-size:13px;font-weight:500;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:320px;}
+    .tx-date{font-size:11.5px;color:var(--muted2);margin-top:1px;}
+    .tx-amount{font-size:13.5px;font-weight:600;margin-left:auto;flex-shrink:0;}
+    .tx-tag{display:inline-block;font-size:10px;padding:1px 6px;border-radius:4px;font-weight:600;margin-left:6px;vertical-align:middle;}
+    .positive{color:var(--accent);} .negative{color:var(--danger);}
+    .tag-cat{background:rgba(167,139,250,0.12);color:var(--purple);}
+    /* FACTURES */
+    .grid2{display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:28px;}
+    .card{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:22px;}
+    .card-title{font-size:14px;font-weight:500;margin-bottom:4px;}
+    .card-sub{font-size:12px;color:var(--muted2);margin-bottom:18px;}
+    .flux-item{display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);}
+    .flux-item:last-child{border-bottom:none;}
+    .flux-left{display:flex;align-items:center;gap:10px;}
+    .flux-icon{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-size:13px;flex-shrink:0;}
+    .flux-name{font-size:12.5px;font-weight:500;}
+    .flux-date{font-size:11px;color:var(--muted2);margin-top:1px;}
+    .flux-amount{font-size:13px;font-weight:600;}
+    .tag{display:inline-block;font-size:10px;padding:2px 6px;border-radius:4px;font-weight:600;text-transform:uppercase;letter-spacing:.4px;margin-left:5px;}
+    .tag-late{background:rgba(248,113,113,0.12);color:var(--danger);}
+    .tag-ok{background:rgba(74,222,128,0.1);color:var(--accent);}
+    .tag-soon{background:rgba(251,191,36,0.12);color:var(--warn);}
+    .tag-prev{background:rgba(96,165,250,0.1);color:var(--info);}
+    .empty{color:var(--muted2);font-size:13px;padding:12px 0;text-align:center;}
+    @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
+    @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
+    @media(max-width:900px){.charts-grid{grid-template-columns:1fr;} .grid2{grid-template-columns:1fr;} .kpis{grid-template-columns:1fr 1fr;}}
   </style>
 </head>
 <body>
 
-<!-- LOGIN -->
 <div id="loginScreen">
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div class="login-field">
-      <label>Adresse e-mail</label>
-      <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email">
-    </div>
-    <div class="login-field">
-      <label>Mot de passe</label>
-      <input type="password" id="loginPassword" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password">
-    </div>
+    <div class="login-field"><label>Adresse e-mail</label>
+      <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
+    <div class="login-field"><label>Mot de passe</label>
+      <input type="password" id="loginPassword" placeholder="&bull;&bull;&bull;&bull;&bull;&bull;&bull;&bull;" autocomplete="current-password"></div>
     <button class="login-btn" id="loginBtn">Se connecter</button>
     <div class="login-error" id="loginError"></div>
   </div>
 </div>
 
-<!-- APP -->
 <div id="app">
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v1.4</div>
+      <div class="header-version">v2.0</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -120,38 +154,62 @@
       <button class="logout-btn" id="logoutBtn">D&eacute;connexion</button>
     </div>
   </div>
-  <div class="alerts" id="alertsZone"></div>
+
   <div class="content">
+    <!-- BANQUES -->
+    <div class="section-title">Comptes bancaires</div>
+    <div class="banks-row" id="banksRow">
+      <div class="bank-card"><div class="bank-name">Chargement&hellip;</div><div class="skeleton"></div></div>
+    </div>
+
+    <!-- GRAPHIQUES -->
+    <div class="period-row">
+      <div class="section-title" style="margin-bottom:0">Activit&eacute; financi&egrave;re</div>
+      <div class="period-btns">
+        <button class="period-btn active" data-p="1m" onclick="setPeriod('1m')">1 mois</button>
+        <button class="period-btn" data-p="3m" onclick="setPeriod('3m')">3 mois</button>
+      </div>
+    </div>
+    <div class="charts-grid">
+      <div class="chart-card">
+        <div class="chart-card-title">Flux de tr&eacute;sorerie</div>
+        <div class="chart-card-sub" id="chartSub">Chargement&hellip;</div>
+        <svg id="cashflowChart" class="chart-svg" height="160"></svg>
+      </div>
+      <div class="chart-card">
+        <div class="chart-card-title">R&eacute;partition des d&eacute;penses</div>
+        <div class="chart-card-sub" id="donutSub">sur la p&eacute;riode</div>
+        <div class="donut-wrap" id="donutWrap">
+          <div class="skeleton" style="width:120px;height:120px;border-radius:50%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="section-title">Indicateurs</div>
     <div class="kpis">
-      <div class="kpi" id="kpi1">
-        <div class="kpi-label">Factures clients en cours</div>
-        <div class="skeleton"></div>
-        <div class="kpi-bar" style="background:var(--accent);opacity:.3"></div>
-      </div>
-      <div class="kpi" id="kpi2">
-        <div class="kpi-label">Factures en retard</div>
-        <div class="skeleton"></div>
-        <div class="kpi-bar" style="background:var(--danger);opacity:.3"></div>
-      </div>
-      <div class="kpi" id="kpi3">
-        <div class="kpi-label">Charges fournisseurs (30j)</div>
-        <div class="skeleton"></div>
-        <div class="kpi-bar" style="background:var(--warn);opacity:.3"></div>
+      <div class="kpi" id="kpi1"><div class="kpi-label">Factures clients en cours</div><div class="skeleton"></div><div class="kpi-bar" style="background:var(--accent);opacity:.3"></div></div>
+      <div class="kpi" id="kpi2"><div class="kpi-label">Factures en retard</div><div class="skeleton"></div><div class="kpi-bar" style="background:var(--danger);opacity:.3"></div></div>
+      <div class="kpi" id="kpi3"><div class="kpi-label">Charges fournisseurs (30j)</div><div class="skeleton"></div><div class="kpi-bar" style="background:var(--warn);opacity:.3"></div></div>
+    </div>
+
+    <!-- ALERTES -->
+    <div class="alerts" id="alertsZone"></div>
+
+    <!-- TRANSACTIONS -->
+    <div class="section-title">Transactions r&eacute;centes</div>
+    <div class="tx-list" id="txList">
+      <div class="tx-header"><div class="tx-header-title">Chargement&hellip;</div></div>
+    </div>
+
+    <!-- FACTURES -->
+    <div style="margin-top:28px">
+      <div class="section-title">Factures</div>
+      <div class="grid2">
+        <div class="card"><div class="card-title">Clients</div><div class="card-sub" id="invSub">Chargement&hellip;</div><div id="invList"><div class="empty">&#9203;</div></div></div>
+        <div class="card"><div class="card-title">Fournisseurs r&eacute;cents</div><div class="card-sub" id="supSub">Chargement&hellip;</div><div id="supList"><div class="empty">&#9203;</div></div></div>
       </div>
     </div>
-    <div class="grid">
-      <div class="card">
-        <div class="card-title">Factures clients</div>
-        <div class="card-sub" id="invSub">Chargement&hellip;</div>
-        <div class="flux-list" id="invList"><div class="empty">&#9203;</div></div>
-      </div>
-      <div class="card">
-        <div class="card-title">Charges fournisseurs r&eacute;centes</div>
-        <div class="card-sub" id="supSub">Chargement&hellip;</div>
-        <div class="flux-list" id="supList"><div class="empty">&#9203;</div></div>
-      </div>
-    </div>
-    <div id="questionZone"></div>
   </div>
 </div>
 
@@ -160,149 +218,330 @@ import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/fireba
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
-  apiKey: 'AIzaSyBPgjVFKrP80qX_hlfUFqL168XONfNIBA4',
-  authDomain: 'lumiia-live.firebaseapp.com',
-  projectId: 'lumiia-live',
-  databaseURL: 'https://lumiia-live-default-rtdb.europe-west1.firebasedatabase.app'
+  apiKey:'AIzaSyBPgjVFKrP80qX_hlfUFqL168XONfNIBA4',
+  authDomain:'lumiia-live.firebaseapp.com',
+  projectId:'lumiia-live',
+  databaseURL:'https://lumiia-live-default-rtdb.europe-west1.firebasedatabase.app'
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
-const PROXY_URL = 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane';
+const PROXY = 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane';
 
-function fmt(n) { return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(parseFloat(n)); }
-function daysFrom(d) { return Math.floor((new Date()-new Date(d))/86400000); }
-function daysUntil(d) { return Math.ceil((new Date(d)-new Date())/86400000); }
-function shortDate(d) { return new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
-function statusTag(inv) {
-  if (inv.status==='late') return `<span class="tag tag-late">Retard \u00b7 ${daysFrom(inv.deadline)}j</span>`;
-  if (inv.status==='paid') return `<span class="tag tag-ok">Pay\u00e9e</span>`;
+// ─── STATE ───
+let allTransactions = [];
+let currentPeriod = '1m';
+
+// ─── UTILS ───
+function fmt(n, decimals=0) {
+  return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:decimals}).format(parseFloat(n));
+}
+function daysFrom(d){ return Math.floor((new Date()-new Date(d))/86400000); }
+function daysUntil(d){ return Math.ceil((new Date(d)-new Date())/86400000); }
+function shortDate(d){ return new Date(d).toLocaleDateString('fr-FR',{day:'numeric',month:'short'}); }
+function isoToMs(s){ return new Date(s).getTime(); }
+function statusTag(inv){
+  if(inv.status==='late') return `<span class="tag tag-late">Retard \u00b7 ${daysFrom(inv.deadline)}j</span>`;
+  if(inv.status==='paid') return `<span class="tag tag-ok">Pay\u00e9e</span>`;
   const d=daysUntil(inv.deadline);
-  if (d<=7) return `<span class="tag tag-soon">\u00c9ch. dans ${d}j</span>`;
-  return `<span class="tag tag-prev">\u00c9ch. ${shortDate(inv.deadline)}</span>`;
+  if(d<=7) return `<span class="tag tag-soon">\u00c9ch. ${d}j</span>`;
+  return `<span class="tag tag-prev">${shortDate(inv.deadline)}</span>`;
 }
 
 document.getElementById('headerDate').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
+// ─── PERIOD ───
+window.setPeriod = function(p) {
+  currentPeriod = p;
+  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.p === p));
+  renderCharts(allTransactions);
+};
+
+function filterByPeriod(txs) {
+  const now = Date.now();
+  const days = currentPeriod === '1m' ? 30 : 90;
+  const cutoff = now - days * 86400000;
+  return txs.filter(t => isoToMs(t.date) >= cutoff);
+}
+
+// ─── CHART: FLUX HEBDO ───
+function renderCashflowChart(txs) {
+  const filtered = filterByPeriod(txs);
+  if (!filtered.length) return;
+
+  // Grouper par semaine
+  const weeks = {};
+  filtered.forEach(t => {
+    const d = new Date(t.date);
+    const mon = new Date(d);
+    mon.setDate(d.getDate() - ((d.getDay()+6)%7));
+    const key = mon.toISOString().slice(0,10);
+    if (!weeks[key]) weeks[key] = { in:0, out:0, label:shortDate(key) };
+    const a = parseFloat(t.amount);
+    if (a > 0) weeks[key].in += a;
+    else weeks[key].out += Math.abs(a);
+  });
+
+  const data = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0])).map(([,v])=>v);
+  const maxVal = Math.max(...data.map(d=>Math.max(d.in,d.out)),1);
+
+  const svgEl = document.getElementById('cashflowChart');
+  const W = svgEl.parentElement.clientWidth - 40;
+  const H = 140;
+  const pad = {left:44,right:8,top:10,bottom:24};
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+  const barW = Math.min(Math.floor(chartW / data.length) - 4, 32);
+
+  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">`;
+
+  // Grille
+  [0,0.5,1].forEach(f => {
+    const y = pad.top + chartH * (1-f);
+    svg += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    if(f>0) svg += `<text x="${pad.left-6}" y="${y+4}" text-anchor="end" fill="rgba(255,255,255,0.25)" font-size="9">${Math.round(maxVal*f/1000)}k</text>`;
+  });
+
+  // Barres
+  data.forEach((d,i) => {
+    const x = pad.left + i * (chartW / data.length) + (chartW / data.length - barW) / 2;
+    const hIn = (d.in / maxVal) * chartH;
+    const hOut = (d.out / maxVal) * chartH;
+
+    // Barre entrées (verte)
+    if(d.in > 0) {
+      svg += `<rect x="${x}" y="${pad.top + chartH - hIn}" width="${barW/2-1}" height="${hIn}" rx="2" fill="rgba(74,222,128,0.5)"/>`;
+    }
+    // Barre sorties (rouge)
+    if(d.out > 0) {
+      svg += `<rect x="${x + barW/2}" y="${pad.top + chartH - hOut}" width="${barW/2-1}" height="${hOut}" rx="2" fill="rgba(248,113,113,0.45)"/>`;
+    }
+    // Label semaine
+    svg += `<text x="${x + barW/2}" y="${H - 4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="9">${d.label}</text>`;
+  });
+
+  // Légende
+  svg += `<rect x="${pad.left}" y="2" width="8" height="8" rx="2" fill="rgba(74,222,128,0.5)"/>
+    <text x="${pad.left+11}" y="10" fill="rgba(255,255,255,0.4)" font-size="9">Entr\u00e9es</text>
+    <rect x="${pad.left+60}" y="2" width="8" height="8" rx="2" fill="rgba(248,113,113,0.45)"/>
+    <text x="${pad.left+71}" y="10" fill="rgba(255,255,255,0.4)" font-size="9">D\u00e9penses</text>`;
+
+  svg += '</svg>';
+  svgEl.outerHTML = svg.replace('<svg', `<svg id="cashflowChart" class="chart-svg" height="${H}"`);
+
+  const totalIn = filtered.filter(t=>parseFloat(t.amount)>0).reduce((s,t)=>s+parseFloat(t.amount),0);
+  const totalOut = filtered.filter(t=>parseFloat(t.amount)<0).reduce((s,t)=>s+parseFloat(t.amount),0);
+  const net = totalIn + totalOut;
+  document.getElementById('chartSub').innerHTML =
+    `<span style="color:var(--accent)">${fmt(totalIn)} entr\u00e9es</span> &middot; ` +
+    `<span style="color:var(--danger)">${fmt(Math.abs(totalOut))} d\u00e9penses</span> &middot; ` +
+    `<span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net ${fmt(net)}</span>`;
+}
+
+// ─── CHART: DONUT ───
+function renderDonut(txs) {
+  const filtered = filterByPeriod(txs).filter(t=>parseFloat(t.amount)<0);
+  if(!filtered.length) return;
+
+  // Grouper par catégorie ou label court
+  const groups = {};
+  filtered.forEach(t => {
+    const cat = t.categories?.[0]?.label || labelGroup(t.label);
+    const amt = Math.abs(parseFloat(t.amount));
+    groups[cat] = (groups[cat]||0) + amt;
+  });
+
+  const sorted = Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const total = sorted.reduce((s,[,v])=>s+v,0);
+  const COLORS = ['#4ade80','#60a5fa','#fbbf24','#a78bfa','#f87171'];
+
+  // SVG donut
+  const R = 52, r = 32, cx = 65, cy = 65;
+  let startAngle = -Math.PI/2;
+  let paths = '';
+  sorted.forEach(([,val],i) => {
+    const angle = (val/total) * 2 * Math.PI;
+    const x1 = cx + R*Math.cos(startAngle), y1 = cy + R*Math.sin(startAngle);
+    const x2 = cx + R*Math.cos(startAngle+angle), y2 = cy + R*Math.sin(startAngle+angle);
+    const ix1 = cx + r*Math.cos(startAngle), iy1 = cy + r*Math.sin(startAngle);
+    const ix2 = cx + r*Math.cos(startAngle+angle), iy2 = cy + r*Math.sin(startAngle+angle);
+    const large = angle > Math.PI ? 1 : 0;
+    paths += `<path d="M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${large} 0 ${ix1},${iy1} Z" fill="${COLORS[i]}" opacity="0.85"/>`;
+    startAngle += angle;
+  });
+
+  const legend = sorted.map(([label,val],i) =>
+    `<div class="legend-item">
+      <div class="legend-dot" style="background:${COLORS[i]}"></div>
+      <div class="legend-label">${label}</div>
+      <div class="legend-val">${fmt(val)}</div>
+    </div>`
+  ).join('');
+
+  document.getElementById('donutWrap').innerHTML = `
+    <svg class="donut-svg" width="130" height="130" viewBox="0 0 130 130">
+      ${paths}
+      <text x="${cx}" y="${cy-6}" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="9">Total</text>
+      <text x="${cx}" y="${cy+10}" text-anchor="middle" fill="white" font-size="12" font-weight="600">${fmt(total)}</text>
+    </svg>
+    <div class="legend">${legend}</div>`;
+  document.getElementById('donutSub').textContent = `Top 5 cat\u00e9gories \u00b7 ${currentPeriod === '1m' ? '30' : '90'} derniers jours`;
+}
+
+function labelGroup(label) {
+  if(!label) return 'Autre';
+  if(/virement|transfer/i.test(label)) return 'Virements';
+  if(/salaire|paie|social/i.test(label)) return 'Salaires';
+  if(/orange|sfr|bouygues|telecom/i.test(label)) return 'T\u00e9l\u00e9phonie';
+  if(/edf|energie|gaz|eau/i.test(label)) return '\u00c9nergie';
+  if(/amazon|fnac|darty/i.test(label)) return 'Achats';
+  if(/loyer|bail/i.test(label)) return 'Loyer';
+  if(/assurance/i.test(label)) return 'Assurance';
+  if(/impot|urssaf|fisc/i.test(label)) return 'Taxes';
+  if(/cb |carte|action|mcc/i.test(label)) return 'CB Divers';
+  return 'Autre';
+}
+
+function renderCharts(txs) {
+  renderCashflowChart(txs);
+  renderDonut(txs);
+}
+
+// ─── BANKS ───
+function renderBanks(banks) {
+  const active = banks.filter(b => parseFloat(b.balance) > 0);
+  const total = active.reduce((s,b)=>s+parseFloat(b.balance),0);
+  const NAMES = {
+    2511481:'Contrat Pro Principal',
+    2516191:'LUMIIA Studios',
+    2516190:'i-immersion',
+    2530243:'I-IMMERSION',
+    2511482:'Business Card'
+  };
+  let html = '';
+  active.forEach(b => {
+    const isMain = parseFloat(b.balance) > 10000;
+    const name = NAMES[b.id] || b.name;
+    html += `<div class="bank-card ${isMain?'main':''}">
+      <div class="bank-name">${name}</div>
+      <div class="bank-amount" style="color:${isMain?'var(--accent)':'var(--text)'}">${fmt(b.balance,2)}</div>
+      <div class="bank-bar"></div>
+    </div>`;
+  });
+  html += `<div class="bank-card total">
+    <div class="bank-name">Total consolid\u00e9</div>
+    <div class="bank-amount" style="color:var(--info)">${fmt(total,2)}</div>
+    <div class="bank-bar"></div>
+  </div>`;
+  document.getElementById('banksRow').innerHTML = html;
+}
+
+// ─── TRANSACTIONS LIST ───
+function renderTxList(txs) {
+  const shown = filterByPeriod(txs).slice(0,20);
+  const total = filterByPeriod(txs).length;
+  let html = `<div class="tx-header">
+    <div class="tx-header-title">Transactions</div>
+    <div class="tx-header-sub">${total} op\u00e9rations</div>
+  </div>`;
+  shown.forEach(t => {
+    const amt = parseFloat(t.amount);
+    const isIn = amt > 0;
+    const cat = t.categories?.[0]?.label;
+    const catTag = cat ? `<span class="tx-tag tag-cat">${cat}</span>` : '';
+    html += `<div class="tx-item">
+      <div class="tx-icon" style="background:${isIn?'rgba(74,222,128,.1)':'rgba(248,113,113,.08)'}">${isIn?'\u2197':'\u2198'}</div>
+      <div style="flex:1;min-width:0">
+        <div class="tx-label">${t.label||'Op\u00e9ration'}${catTag}</div>
+        <div class="tx-date">${shortDate(t.date)}</div>
+      </div>
+      <div class="tx-amount ${isIn?'positive':'negative'}">${isIn?'+':''}${fmt(amt)}</div>
+    </div>`;
+  });
+  document.getElementById('txList').innerHTML = html;
+}
+
+// ─── KPIs & FACTURES ───
+function renderKPIs(invoices, suppliers) {
+  const outstanding = invoices.filter(i=>i.status!=='paid');
+  const late = invoices.filter(i=>i.status==='late');
+  const totalOut = outstanding.reduce((s,i)=>s+parseFloat(i.amount),0);
+  const totalLate = late.reduce((s,i)=>s+parseFloat(i.amount),0);
+  const totalSup = suppliers.reduce((s,i)=>s+parseFloat(i.amount),0);
+
+  document.getElementById('kpi1').innerHTML = `<div class="kpi-label">Factures clients en cours</div><div class="kpi-value" style="color:var(--accent)">${fmt(totalOut)}</div><div class="kpi-sub">${outstanding.length} \u00e0 encaisser</div><div class="kpi-bar" style="background:var(--accent);opacity:.3"></div>`;
+  document.getElementById('kpi2').innerHTML = `<div class="kpi-label">Factures en retard</div><div class="kpi-value" style="color:${late.length?'var(--danger)':'var(--accent)'}">${fmt(totalLate)}</div><div class="kpi-sub">${late.length} facture${late.length!==1?'s':''}</div><div class="kpi-bar" style="background:var(--danger);opacity:.3"></div>`;
+  document.getElementById('kpi3').innerHTML = `<div class="kpi-label">Charges fournisseurs (30j)</div><div class="kpi-value" style="color:var(--warn)">${fmt(totalSup)}</div><div class="kpi-sub">${suppliers.length} factures</div><div class="kpi-bar" style="background:var(--warn);opacity:.3"></div>`;
+
+  const az = document.getElementById('alertsZone');
+  az.innerHTML = '';
+  late.forEach(inv => {
+    az.innerHTML += `<div class="alert danger"><div><strong>${inv.invoice_number} \u2014 ${fmt(inv.amount)} en retard</strong><span>\u00c9ch\u00e9ance d\u00e9pass\u00e9e depuis ${daysFrom(inv.deadline)} jour${daysFrom(inv.deadline)>1?'s':''}.</span></div></div>`;
+  });
+
+  document.getElementById('invSub').textContent = `${invoices.length} factures \u00b7 Pennylane`;
+  const il = document.getElementById('invList');
+  il.innerHTML = invoices.length===0?'<div class="empty">Aucune facture</div>':'';
+  invoices.slice(0,6).forEach(inv => {
+    const paid = inv.status==='paid';
+    il.innerHTML += `<div class="flux-item"><div class="flux-left"><div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div><div><div class="flux-name">${inv.invoice_number}${statusTag(inv)}</div><div class="flux-date">${shortDate(inv.date)}</div></div></div><div class="flux-amount ${paid?'positive':inv.status==='late'?'negative':''}">${fmt(inv.amount)}</div></div>`;
+  });
+
+  document.getElementById('supSub').textContent = `${suppliers.length} factures \u00b7 Pennylane`;
+  const sl = document.getElementById('supList');
+  sl.innerHTML = suppliers.length===0?'<div class="empty">Aucune charge</div>':'';
+  suppliers.slice(0,6).forEach(sup => {
+    sl.innerHTML += `<div class="flux-item"><div class="flux-left"><div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div><div><div class="flux-name">${sup.invoice_number||'Facture'}</div><div class="flux-date">${shortDate(sup.date)}</div></div></div><div class="flux-amount negative">\u2212${fmt(sup.amount)}</div></div>`;
+  });
+}
+
+// ─── AUTH ───
 const loginScreen = document.getElementById('loginScreen');
 const appDiv = document.getElementById('app');
 const loginBtn = document.getElementById('loginBtn');
 const loginError = document.getElementById('loginError');
 
-onAuthStateChanged(auth, (user) => {
-  if (user) { loginScreen.style.display='none'; appDiv.style.display='block'; load(); }
-  else { loginScreen.style.display='flex'; appDiv.style.display='none'; }
+onAuthStateChanged(auth, user => {
+  if(user){ loginScreen.style.display='none'; appDiv.style.display='block'; load(); }
+  else{ loginScreen.style.display='flex'; appDiv.style.display='none'; }
 });
-
 loginBtn.addEventListener('click', async () => {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
-  loginError.style.display = 'none';
-  loginBtn.disabled = true;
-  loginBtn.textContent = 'Connexion\u2026';
-  try {
-    await signInWithEmailAndPassword(auth, email, password);
-  } catch(e) {
-    loginError.textContent = 'Email ou mot de passe incorrect';
-    loginError.style.display = 'block';
-    loginBtn.disabled = false;
-    loginBtn.textContent = 'Se connecter';
-  }
+  loginError.style.display='none'; loginBtn.disabled=true; loginBtn.textContent='Connexion\u2026';
+  try{ await signInWithEmailAndPassword(auth,email,password); }
+  catch(e){ loginError.textContent='Email ou mot de passe incorrect'; loginError.style.display='block'; loginBtn.disabled=false; loginBtn.textContent='Se connecter'; }
 });
-document.getElementById('loginEmail').addEventListener('keydown', (e) => { if (e.key==='Enter') loginBtn.click(); });
-document.getElementById('loginPassword').addEventListener('keydown', (e) => { if (e.key==='Enter') loginBtn.click(); });
-document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
+document.getElementById('loginEmail').addEventListener('keydown',e=>{ if(e.key==='Enter') loginBtn.click(); });
+document.getElementById('loginPassword').addEventListener('keydown',e=>{ if(e.key==='Enter') loginBtn.click(); });
+document.getElementById('logoutBtn').addEventListener('click',()=>signOut(auth));
 
+// ─── LOAD ───
 async function load() {
   try {
-    const idToken = await auth.currentUser.getIdToken();
-    const headers = { 'Authorization': `Bearer ${idToken}` };
-    const [invRes, supRes] = await Promise.all([
-      fetch(`${PROXY_URL}/customer_invoices?limit=10`, { headers }),
-      fetch(`${PROXY_URL}/supplier_invoices?limit=8`, { headers }),
+    const token = await auth.currentUser.getIdToken();
+    const h = { Authorization:`Bearer ${token}` };
+    const [banksRes, txRes, invRes, supRes] = await Promise.all([
+      fetch(`${PROXY}/bank_accounts`,{headers:h}),
+      fetch(`${PROXY}/transactions?limit=100`,{headers:h}),
+      fetch(`${PROXY}/customer_invoices?limit=10`,{headers:h}),
+      fetch(`${PROXY}/supplier_invoices?limit=8`,{headers:h}),
     ]);
-    if (!invRes.ok) throw new Error('Erreur API ' + invRes.status);
-    const invoices = (await invRes.json()).items || [];
-    const suppliers = (await supRes.json()).items || [];
+
+    const banks = (await banksRes.json()).items || [];
+    const txs   = (await txRes.json()).items || [];
+    const invs  = (await invRes.json()).items || [];
+    const sups  = (await supRes.json()).items || [];
+
+    allTransactions = txs;
 
     document.getElementById('syncBadge').textContent = '\u25cf Pennylane synchronis\u00e9';
     document.getElementById('syncBadge').className = 'badge ok';
 
-    const outstanding = invoices.filter(i=>i.status!=='paid');
-    const late = invoices.filter(i=>i.status==='late');
-    const totalOut = outstanding.reduce((s,i)=>s+parseFloat(i.amount),0);
-    const totalLate = late.reduce((s,i)=>s+parseFloat(i.amount),0);
-    const totalSup = suppliers.reduce((s,i)=>s+parseFloat(i.amount),0);
+    renderBanks(banks);
+    renderCharts(txs);
+    renderKPIs(invs, sups);
+    renderTxList(txs);
 
-    document.getElementById('kpi1').innerHTML = `
-      <div class="kpi-label">Factures clients en cours</div>
-      <div class="kpi-value" style="color:var(--accent)">${fmt(totalOut)}</div>
-      <div class="kpi-sub">${outstanding.length} facture${outstanding.length>1?'s':''} \u00e0 encaisser</div>
-      <div class="kpi-bar" style="background:var(--accent);opacity:.3"></div>`;
-    document.getElementById('kpi2').innerHTML = `
-      <div class="kpi-label">Factures en retard</div>
-      <div class="kpi-value" style="color:${late.length>0?'var(--danger)':'var(--accent)'}">${fmt(totalLate)}</div>
-      <div class="kpi-sub">${late.length} facture${late.length!==1?'s':''} en retard</div>
-      <div class="kpi-bar" style="background:var(--danger);opacity:.3"></div>`;
-    document.getElementById('kpi3').innerHTML = `
-      <div class="kpi-label">Charges fournisseurs (30j)</div>
-      <div class="kpi-value" style="color:var(--warn)">${fmt(totalSup)}</div>
-      <div class="kpi-sub">${suppliers.length} factures fournisseurs</div>
-      <div class="kpi-bar" style="background:var(--warn);opacity:.3"></div>`;
-
-    const az = document.getElementById('alertsZone');
-    az.innerHTML = '';
-    late.forEach(inv => {
-      az.innerHTML += `<div class="alert danger"><div>
-        <strong>${inv.invoice_number} \u2014 ${fmt(inv.amount)} en retard</strong>
-        <span>\u00c9ch\u00e9ance d\u00e9pass\u00e9e depuis ${daysFrom(inv.deadline)} jour${daysFrom(inv.deadline)>1?'s':''}. Relance recommand\u00e9e.</span>
-      </div></div>`;
-    });
-
-    document.getElementById('invSub').textContent = `${invoices.length} factures \u00b7 Pennylane`;
-    const il = document.getElementById('invList');
-    il.innerHTML = invoices.length===0?'<div class="empty">Aucune facture</div>':'';
-    invoices.slice(0,7).forEach(inv => {
-      const paid = inv.status==='paid';
-      il.innerHTML += `<div class="flux-item">
-        <div class="flux-left">
-          <div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div>
-          <div>
-            <div class="flux-name">${inv.invoice_number}${statusTag(inv)}</div>
-            <div class="flux-date">${shortDate(inv.date)} \u00b7 \u00e9ch. ${shortDate(inv.deadline)}</div>
-          </div>
-        </div>
-        <div class="flux-amount ${paid?'positive':inv.status==='late'?'late-color':''}">${fmt(inv.amount)}</div>
-      </div>`;
-    });
-
-    document.getElementById('supSub').textContent = `${suppliers.length} factures \u00b7 Pennylane`;
-    const sl = document.getElementById('supList');
-    sl.innerHTML = suppliers.length===0?'<div class="empty">Aucune charge</div>':'';
-    suppliers.slice(0,7).forEach(sup => {
-      sl.innerHTML += `<div class="flux-item">
-        <div class="flux-left">
-          <div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div>
-          <div>
-            <div class="flux-name">${sup.invoice_number||'Facture'}</div>
-            <div class="flux-date">${shortDate(sup.date)}</div>
-          </div>
-        </div>
-        <div class="flux-amount negative">\u2212${fmt(sup.amount)}</div>
-      </div>`;
-    });
-
-    if (late.length>0) {
-      document.getElementById('questionZone').innerHTML = `<div class="qbubble">
-        <div class="qb-icon">\ud83e\udd14</div>
-        <div class="qb-text">
-          <p>Tu as <strong>${late.length} facture${late.length>1?'s':''} en retard</strong> (${fmt(totalLate)}). Tu as d\u00e9j\u00e0 envoy\u00e9 une relance ?</p>
-          <div class="qb-actions">
-            <button class="qb-btn qb-yes" onclick="this.closest('.qbubble').remove()">Oui, relance envoy\u00e9e</button>
-            <button class="qb-btn qb-no" onclick="this.closest('.qbubble').remove()">Je le fais maintenant</button>
-          </div>
-        </div>
-      </div>`;
-    }
   } catch(e) {
     document.getElementById('syncBadge').textContent = '\u2717 Erreur de connexion';
     document.getElementById('syncBadge').className = 'badge err';
