@@ -14,7 +14,6 @@
     }
     * { margin:0; padding:0; box-sizing:border-box; }
     body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; font-size:14px; min-height:100vh; }
-    /* LOGIN */
     #loginScreen { display:flex; align-items:center; justify-content:center; min-height:100vh; padding:20px; }
     .login-card { background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:40px; width:100%; max-width:400px; }
     .login-logo { font-family:'DM Serif Display',serif; font-size:24px; margin-bottom:8px; }
@@ -28,11 +27,12 @@
     .login-btn:hover { opacity:.9; }
     .login-btn:disabled { opacity:.5; cursor:not-allowed; }
     .login-error { margin-top:14px; padding:10px 14px; background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); border-radius:8px; font-size:13px; color:var(--danger); display:none; }
-    /* APP */
     #app { display:none; }
-    .header { display:flex; align-items:center; justify-content:space-between; padding:20px 32px; border-bottom:1px solid var(--border); background:var(--surface); }
+    .header { display:flex; align-items:center; justify-content:space-between; padding:16px 32px 12px; border-bottom:1px solid var(--border); background:var(--surface); }
+    .header-left { display:flex; flex-direction:column; gap:2px; }
     .logo { font-family:'DM Serif Display',serif; font-size:20px; }
     .logo span { color:var(--accent); }
+    .header-version { font-size:0.72rem; color:var(--muted2); font-weight:600; letter-spacing:0.06em; }
     .header-right { display:flex; align-items:center; gap:16px; }
     .badge { font-size:11px; padding:4px 10px; border-radius:20px; }
     .badge.loading { color:var(--muted2); background:rgba(255,255,255,0.04); border:1px solid var(--border); }
@@ -43,7 +43,6 @@
     .alerts { padding:16px 32px 0; display:flex; flex-direction:column; gap:8px; }
     .alert { display:flex; align-items:flex-start; gap:12px; padding:12px 16px; border-radius:10px; font-size:13px; animation:fadeIn .3s ease; }
     .alert.danger { background:rgba(248,113,113,0.08); border:1px solid rgba(248,113,113,0.2); }
-    .alert.warn { background:rgba(251,191,36,0.08); border:1px solid rgba(251,191,36,0.2); }
     .alert strong { display:block; font-weight:600; margin-bottom:2px; }
     .alert span { color:var(--muted2); font-size:12px; }
     .content { padding:24px 32px 40px; }
@@ -84,7 +83,6 @@
     .qb-yes { background:var(--accent); color:#0d0f14; border:none; }
     .qb-no { background:transparent; color:var(--muted2); border:1px solid var(--border); }
     .empty { color:var(--muted2); font-size:13px; padding:12px 0; text-align:center; }
-    .version { position:fixed; bottom:12px; right:16px; font-size:10px; color:var(--muted); opacity:.5; }
     @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.5} }
     @keyframes fadeIn { from{opacity:0;transform:translateY(-6px)} to{opacity:1;transform:translateY(0)} }
   </style>
@@ -112,11 +110,12 @@
 <!-- APP -->
 <div id="app">
   <div class="header">
-    <div style="display:flex;align-items:center">
+    <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
+      <div class="header-version">v1.4</div>
     </div>
     <div class="header-right">
+      <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
       <div style="font-size:12px;color:var(--muted2)" id="headerDate"></div>
       <button class="logout-btn" id="logoutBtn">D&eacute;connexion</button>
     </div>
@@ -156,8 +155,6 @@
   </div>
 </div>
 
-<div class="version">v1.3 &mdash; Lumiia Tr&eacute;sorerie</div>
-
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
@@ -172,7 +169,6 @@ const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
 const PROXY_URL = 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane';
 
-// ===== UTILS =====
 function fmt(n) { return new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(parseFloat(n)); }
 function daysFrom(d) { return Math.floor((new Date()-new Date(d))/86400000); }
 function daysUntil(d) { return Math.ceil((new Date(d)-new Date())/86400000); }
@@ -187,22 +183,14 @@ function statusTag(inv) {
 
 document.getElementById('headerDate').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
-// ===== AUTH =====
 const loginScreen = document.getElementById('loginScreen');
 const appDiv = document.getElementById('app');
 const loginBtn = document.getElementById('loginBtn');
 const loginError = document.getElementById('loginError');
-const logoutBtn = document.getElementById('logoutBtn');
 
 onAuthStateChanged(auth, (user) => {
-  if (user) {
-    loginScreen.style.display = 'none';
-    appDiv.style.display = 'block';
-    load();
-  } else {
-    loginScreen.style.display = 'flex';
-    appDiv.style.display = 'none';
-  }
+  if (user) { loginScreen.style.display='none'; appDiv.style.display='block'; load(); }
+  else { loginScreen.style.display='flex'; appDiv.style.display='none'; }
 });
 
 loginBtn.addEventListener('click', async () => {
@@ -220,22 +208,18 @@ loginBtn.addEventListener('click', async () => {
     loginBtn.textContent = 'Se connecter';
   }
 });
-
 document.getElementById('loginEmail').addEventListener('keydown', (e) => { if (e.key==='Enter') loginBtn.click(); });
 document.getElementById('loginPassword').addEventListener('keydown', (e) => { if (e.key==='Enter') loginBtn.click(); });
-logoutBtn.addEventListener('click', () => signOut(auth));
+document.getElementById('logoutBtn').addEventListener('click', () => signOut(auth));
 
-// ===== DATA LOAD =====
 async function load() {
   try {
     const idToken = await auth.currentUser.getIdToken();
     const headers = { 'Authorization': `Bearer ${idToken}` };
-
     const [invRes, supRes] = await Promise.all([
       fetch(`${PROXY_URL}/customer_invoices?limit=10`, { headers }),
       fetch(`${PROXY_URL}/supplier_invoices?limit=8`, { headers }),
     ]);
-
     if (!invRes.ok) throw new Error('Erreur API ' + invRes.status);
     const invoices = (await invRes.json()).items || [];
     const suppliers = (await supRes.json()).items || [];
@@ -268,13 +252,10 @@ async function load() {
     const az = document.getElementById('alertsZone');
     az.innerHTML = '';
     late.forEach(inv => {
-      az.innerHTML += `
-        <div class="alert danger">
-          <div>
-            <strong>${inv.invoice_number} \u2014 ${fmt(inv.amount)} en retard</strong>
-            <span>\u00c9ch\u00e9ance d\u00e9pass\u00e9e depuis ${daysFrom(inv.deadline)} jour${daysFrom(inv.deadline)>1?'s':''}. Relance recommand\u00e9e.</span>
-          </div>
-        </div>`;
+      az.innerHTML += `<div class="alert danger"><div>
+        <strong>${inv.invoice_number} \u2014 ${fmt(inv.amount)} en retard</strong>
+        <span>\u00c9ch\u00e9ance d\u00e9pass\u00e9e depuis ${daysFrom(inv.deadline)} jour${daysFrom(inv.deadline)>1?'s':''}. Relance recommand\u00e9e.</span>
+      </div></div>`;
     });
 
     document.getElementById('invSub').textContent = `${invoices.length} factures \u00b7 Pennylane`;
@@ -282,56 +263,50 @@ async function load() {
     il.innerHTML = invoices.length===0?'<div class="empty">Aucune facture</div>':'';
     invoices.slice(0,7).forEach(inv => {
       const paid = inv.status==='paid';
-      il.innerHTML += `
-        <div class="flux-item">
-          <div class="flux-left">
-            <div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">
-              ${paid?'\ud83d\udce5':'\ud83d\udcc4'}
-            </div>
-            <div>
-              <div class="flux-name">${inv.invoice_number}${statusTag(inv)}</div>
-              <div class="flux-date">${shortDate(inv.date)} \u00b7 \u00e9ch. ${shortDate(inv.deadline)}</div>
-            </div>
+      il.innerHTML += `<div class="flux-item">
+        <div class="flux-left">
+          <div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div>
+          <div>
+            <div class="flux-name">${inv.invoice_number}${statusTag(inv)}</div>
+            <div class="flux-date">${shortDate(inv.date)} \u00b7 \u00e9ch. ${shortDate(inv.deadline)}</div>
           </div>
-          <div class="flux-amount ${paid?'positive':inv.status==='late'?'late-color':''}">${fmt(inv.amount)}</div>
-        </div>`;
+        </div>
+        <div class="flux-amount ${paid?'positive':inv.status==='late'?'late-color':''}">${fmt(inv.amount)}</div>
+      </div>`;
     });
 
     document.getElementById('supSub').textContent = `${suppliers.length} factures \u00b7 Pennylane`;
     const sl = document.getElementById('supList');
     sl.innerHTML = suppliers.length===0?'<div class="empty">Aucune charge</div>':'';
     suppliers.slice(0,7).forEach(sup => {
-      sl.innerHTML += `
-        <div class="flux-item">
-          <div class="flux-left">
-            <div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div>
-            <div>
-              <div class="flux-name">${sup.invoice_number||'Facture'}</div>
-              <div class="flux-date">${shortDate(sup.date)}</div>
-            </div>
+      sl.innerHTML += `<div class="flux-item">
+        <div class="flux-left">
+          <div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div>
+          <div>
+            <div class="flux-name">${sup.invoice_number||'Facture'}</div>
+            <div class="flux-date">${shortDate(sup.date)}</div>
           </div>
-          <div class="flux-amount negative">\u2212${fmt(sup.amount)}</div>
-        </div>`;
+        </div>
+        <div class="flux-amount negative">\u2212${fmt(sup.amount)}</div>
+      </div>`;
     });
 
     if (late.length>0) {
-      document.getElementById('questionZone').innerHTML = `
-        <div class="qbubble">
-          <div class="qb-icon">\ud83e\udd14</div>
-          <div class="qb-text">
-            <p>Tu as <strong>${late.length} facture${late.length>1?'s':''} en retard</strong> (${fmt(totalLate)}). Tu as d\u00e9j\u00e0 envoy\u00e9 une relance ?</p>
-            <div class="qb-actions">
-              <button class="qb-btn qb-yes" onclick="this.closest('.qbubble').remove()">Oui, relance envoy\u00e9e</button>
-              <button class="qb-btn qb-no" onclick="this.closest('.qbubble').remove()">Je le fais maintenant</button>
-            </div>
+      document.getElementById('questionZone').innerHTML = `<div class="qbubble">
+        <div class="qb-icon">\ud83e\udd14</div>
+        <div class="qb-text">
+          <p>Tu as <strong>${late.length} facture${late.length>1?'s':''} en retard</strong> (${fmt(totalLate)}). Tu as d\u00e9j\u00e0 envoy\u00e9 une relance ?</p>
+          <div class="qb-actions">
+            <button class="qb-btn qb-yes" onclick="this.closest('.qbubble').remove()">Oui, relance envoy\u00e9e</button>
+            <button class="qb-btn qb-no" onclick="this.closest('.qbubble').remove()">Je le fais maintenant</button>
           </div>
-        </div>`;
+        </div>
+      </div>`;
     }
   } catch(e) {
     document.getElementById('syncBadge').textContent = '\u2717 Erreur de connexion';
     document.getElementById('syncBadge').className = 'badge err';
-    document.getElementById('alertsZone').innerHTML = `
-      <div class="alert danger"><div><strong>Impossible de contacter Pennylane</strong><span>${e.message}</span></div></div>`;
+    document.getElementById('alertsZone').innerHTML = `<div class="alert danger"><div><strong>Impossible de contacter Pennylane</strong><span>${e.message}</span></div></div>`;
   }
 }
 </script>
