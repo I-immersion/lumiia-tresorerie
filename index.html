@@ -153,7 +153,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.2</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.3</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -169,7 +169,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.2</div>
+      <div class="header-version">v2.3</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -238,7 +238,7 @@
           <span class="accordion-arrow" id="txArrow">&#9660;</span>
         </div>
       </div>
-      <div class="accordion-body open" id="txAccordion">
+      <div class="accordion-body" id="txAccordion">
         <div id="txList"></div>
       </div>
     </div>
@@ -254,7 +254,7 @@
             <span class="accordion-arrow" id="invArrow">&#9660;</span>
           </div>
         </div>
-        <div class="accordion-body open" id="invAccordion">
+        <div class="accordion-body" id="invAccordion">
           <div id="invList"><div class="empty">&#9203;</div></div>
         </div>
       </div>
@@ -268,7 +268,7 @@
             <span class="accordion-arrow" id="supArrow">&#9660;</span>
           </div>
         </div>
-        <div class="accordion-body open" id="supAccordion">
+        <div class="accordion-body" id="supAccordion">
           <div id="supList"><div class="empty">&#9203;</div></div>
         </div>
       </div>
@@ -322,14 +322,16 @@ document.getElementById('headerDate').textContent = new Date().toLocaleDateStrin
 const PERIOD_DAYS = { '1m':30, '3m':90, '6m':180, '12m':365 };
 const PERIOD_LIMIT = { '1m':100, '3m':150, '6m':300, '12m':500 };
 
+const PERIOD_PAGES = { '1m':1, '3m':2, '6m':3, '12m':4 };
+
 window.setPeriod = async function(p) {
   currentPeriod = p;
   document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.p === p));
-  // Si on a besoin de plus de données que ce qu'on a chargé
-  const needed = PERIOD_LIMIT[p];
-  if(allTransactions.length < needed * 0.5) {
-    document.getElementById('chartSub').textContent = 'Chargement des donn\u00e9es\u2026';
-    await reloadTransactions(needed);
+  const pagesNeeded = PERIOD_PAGES[p] || 1;
+  const txPerPage = 100;
+  if(allTransactions.length < pagesNeeded * txPerPage * 0.6) {
+    document.getElementById('chartSub').textContent = 'Chargement\u2026';
+    await reloadTransactions(pagesNeeded);
   }
   renderCharts(allTransactions);
   renderTxList(allTransactions);
@@ -376,14 +378,29 @@ function categorizeSupplier(label) {
   return { cat:'Prestataires', color:'#a78bfa', icon:'\ud83e\udd1d' };
 }
 
-async function reloadTransactions(limit) {
+async function reloadTransactions(pages) {
   try {
     const { getAuth } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js');
     const { getApp } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js');
     const token = await getAuth(getApp()).currentUser.getIdToken();
-    const r = await fetch(`${PROXY}/transactions?limit=${limit}`, { headers:{ Authorization:`Bearer ${token}` } });
-    const d = await r.json();
-    if(d.items?.length) allTransactions = d.items;
+    const h = { Authorization:`Bearer ${token}` };
+    let all = [...allTransactions];
+    let cursor = null;
+    // Chercher le cursor depuis la 1ère page déjà chargée
+    const r1 = await fetch(`${PROXY}/transactions?limit=100`, {headers:h});
+    const d1 = await r1.json();
+    if(!d1.items) return;
+    all = d1.items;
+    cursor = d1.next_cursor;
+    // Charger les pages supplémentaires
+    for(let p = 1; p < pages && cursor && d1.has_more !== false; p++) {
+      const rn = await fetch(`${PROXY}/transactions?limit=100&cursor=${encodeURIComponent(cursor)}`, {headers:h});
+      const dn = await rn.json();
+      if(!dn.items?.length) break;
+      all = [...all, ...dn.items];
+      cursor = dn.next_cursor;
+    }
+    allTransactions = all;
   } catch(e) { console.warn('reloadTransactions error', e); }
 }
 
@@ -562,17 +579,21 @@ function renderCharts(txs) {
 function renderBanks(banks) {
   const active = banks.filter(b => parseFloat(b.balance) > 0);
   const total = active.reduce((s,b)=>s+parseFloat(b.balance),0);
-  const NAMES = {
-    2511481:'Contrat Pro Principal',
-    2516191:'LUMIIA Studios',
-    2516190:'i-immersion',
-    2530243:'I-IMMERSION',
-    2511482:'Business Card'
-  };
+
+  function cleanBankName(name) {
+    if(!name) return 'Compte';
+    // Raccourcir le nom carte bancaire trop long
+    if(name.length > 30) {
+      const m = name.match(/^(\w+\s+\w+)/);
+      return m ? m[1] : name.substring(0, 28) + '\u2026';
+    }
+    return name;
+  }
+
   let html = '';
   active.forEach(b => {
     const isMain = parseFloat(b.balance) > 10000;
-    const name = NAMES[b.id] || b.name;
+    const name = cleanBankName(b.name);
     html += `<div class="bank-card ${isMain?'main':''}">
       <div class="bank-name">${name}</div>
       <div class="bank-amount" style="color:${isMain?'var(--accent)':'var(--text)'}">${fmt(b.balance,2)}</div>
@@ -601,7 +622,7 @@ function renderTxList(txs) {
     html += `<div class="tx-item">
       <div class="tx-icon" style="background:${isIn?'rgba(74,222,128,.1)':'rgba(248,113,113,.08)'}">${isIn?'\u2197':'\u2198'}</div>
       <div style="flex:1;min-width:0">
-        <div class="tx-label">${t.label||'Op\u00e9ration'}${catTag}</div>
+        <div class="tx-label" style="color:var(--muted2);font-size:11px;font-weight:400">${t.label||'Op\u00e9ration'}${catTag}</div>
         <div class="tx-date">${shortDate(t.date)}</div>
       </div>
       <div class="tx-amount ${isIn?'positive':'negative'}">${isIn?'+':''}${fmt(amt)}</div>
@@ -635,9 +656,9 @@ function renderKPIs(invoices, suppliers) {
   else invoices.slice(0,8).forEach(inv => {
     const paid = inv.status==='paid';
     const clientName = extractName(inv.label);
-    invHtml += `<div class="flux-item" style="padding:10px 20px"><div class="flux-left"><div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div><div>
-      <div class="flux-name">${inv.invoice_number}${statusTag(inv)}</div>
-      ${clientName?`<div class="flux-date" style="color:var(--muted2);font-weight:500">${clientName}</div>`:''}
+        invHtml += `<div class="flux-item" style="padding:10px 20px"><div class="flux-left"><div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div><div>
+      ${clientName?`<div class="flux-name" style="color:var(--text);font-weight:600">${clientName}</div>`:''}
+      <div class="flux-date" style="color:var(--info)">${inv.invoice_number}${statusTag(inv)}</div>
       <div class="flux-date">${shortDate(inv.date)}</div>
     </div></div><div class="flux-amount ${paid?'positive':inv.status==='late'?'negative':''}">${fmt(inv.amount)}</div></div>`;
   });
@@ -667,13 +688,13 @@ function renderKPIs(invoices, suppliers) {
       </div>`;
     items.forEach(sup => {
       const supName = extractName(sup.label);
-      supHtml += `<div class="flux-item" style="padding:9px 20px"><div class="flux-left"><div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div><div>
-        <div class="flux-name">${sup.invoice_number||'Facture'}</div>
-        ${supName?`<div class="flux-date" style="color:var(--muted2);font-weight:500">${supName}</div>`:''}
+          supHtml += `<div class="flux-item" style="padding:9px 20px"><div class="flux-left"><div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div><div>
+        ${supName?`<div class="flux-name" style="color:var(--text);font-weight:600">${supName}</div>`:''}
+        <div class="flux-date" style="color:var(--warn)">${sup.invoice_number||'Facture'}</div>
         <div class="flux-date">${shortDate(sup.date)}</div>
       </div></div><div class="flux-amount negative">\u2212${fmt(sup.amount)}</div></div>`;
-    });
     supHtml += `</div>`;
+  });
   });
   document.getElementById('supList').innerHTML = supHtml || '<div class="empty">Aucune charge</div>';
 }
@@ -706,7 +727,7 @@ async function load() {
     const h = { Authorization:`Bearer ${token}` };
     const [banksRes, txRes, invRes, supRes] = await Promise.all([
       fetch(`${PROXY}/bank_accounts`,{headers:h}),
-      fetch(`${PROXY}/transactions?limit=300`,{headers:h}),
+      fetch(`${PROXY}/transactions?limit=100`,{headers:h}),
       fetch(`${PROXY}/customer_invoices?limit=10`,{headers:h}),
       fetch(`${PROXY}/supplier_invoices?limit=8`,{headers:h}),
     ]);
