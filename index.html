@@ -41,7 +41,13 @@
     .logout-btn{background:transparent;border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px;cursor:pointer;transition:all .15s;}
     .logout-btn:hover{color:var(--text);border-color:rgba(255,255,255,0.2);}
     /* CONTENT */
-    .content{padding:24px 32px 48px;max-width:1200px;}
+    .content{padding:24px 32px 48px;}
+    #chart-tooltip{display:none;position:fixed;background:var(--surface2);border:1px solid rgba(255,255,255,0.12);border-radius:10px;padding:10px 14px;font-size:12px;line-height:1.9;pointer-events:none;z-index:9999;box-shadow:0 4px 20px rgba(0,0,0,0.4);}
+    .donut-tabs{display:flex;gap:4px;margin-bottom:12px;}
+    .donut-tab{background:none;border:none;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:11.5px;font-weight:600;padding:4px 12px;border-radius:6px;cursor:pointer;transition:all .15s;}
+    .donut-tab.active{background:var(--surface2);color:var(--text);}
+    .kpi-link{font-size:11px;color:var(--muted2);cursor:pointer;text-decoration:underline;text-decoration-style:dotted;margin-top:6px;display:inline-block;}
+    .kpi-link:hover{color:var(--text);}
     /* SECTION */
     .section-title{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;font-weight:600;margin-bottom:12px;}
     /* BANKS */
@@ -142,11 +148,13 @@
   </div>
 </div>
 
+<div id="chart-tooltip"></div>
+
 <div id="app">
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.0</div>
+      <div class="header-version">v2.1</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -177,8 +185,11 @@
         <svg id="cashflowChart" class="chart-svg" height="160"></svg>
       </div>
       <div class="chart-card">
-        <div class="chart-card-title">R&eacute;partition des d&eacute;penses</div>
-        <div class="chart-card-sub" id="donutSub">sur la p&eacute;riode</div>
+        <div class="chart-card-title">R&eacute;partition</div>
+        <div class="donut-tabs">
+          <button class="donut-tab active" onclick="setDonutTab('out')">D&eacute;penses</button>
+          <button class="donut-tab" onclick="setDonutTab('in')">Entr&eacute;es</button>
+        </div>
         <div class="donut-wrap" id="donutWrap">
           <div class="skeleton" style="width:120px;height:120px;border-radius:50%"></div>
         </div>
@@ -203,11 +214,11 @@
     </div>
 
     <!-- FACTURES -->
-    <div style="margin-top:28px">
+    <div style="margin-top:28px" id="section-factures">
       <div class="section-title">Factures</div>
       <div class="grid2">
         <div class="card"><div class="card-title">Clients</div><div class="card-sub" id="invSub">Chargement&hellip;</div><div id="invList"><div class="empty">&#9203;</div></div></div>
-        <div class="card"><div class="card-title">Fournisseurs r&eacute;cents</div><div class="card-sub" id="supSub">Chargement&hellip;</div><div id="supList"><div class="empty">&#9203;</div></div></div>
+        <div class="card" id="card-fournisseurs"><div class="card-title">Fournisseurs r&eacute;cents</div><div class="card-sub" id="supSub">Chargement&hellip;</div><div id="supList"><div class="empty">&#9203;</div></div></div>
       </div>
     </div>
   </div>
@@ -230,6 +241,7 @@ const PROXY = 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane';
 // ─── STATE ───
 let allTransactions = [];
 let currentPeriod = '1m';
+let currentDonutTab = 'out';
 
 // ─── UTILS ───
 function fmt(n, decimals=0) {
@@ -246,15 +258,38 @@ function statusTag(inv){
   if(d<=7) return `<span class="tag tag-soon">\u00c9ch. ${d}j</span>`;
   return `<span class="tag tag-prev">${shortDate(inv.deadline)}</span>`;
 }
+function extractName(label) {
+  if(!label) return null;
+  const m = label.match(/^Facture\s+(.+?)\s+-\s+/);
+  return m ? m[1] : null;
+}
 
 document.getElementById('headerDate').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
 
-// ─── PERIOD ───
+// ─── PERIOD & DONUT TAB ───
 window.setPeriod = function(p) {
   currentPeriod = p;
   document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.p === p));
   renderCharts(allTransactions);
 };
+window.setDonutTab = function(tab) {
+  currentDonutTab = tab;
+  document.querySelectorAll('.donut-tab').forEach(b => b.classList.toggle('active', (b.textContent.includes('D\u00e9') ? 'out' : 'in') === tab));
+  renderDonut(allTransactions);
+};
+window.showTooltip = function(evt, label, inAmt, outAmt) {
+  const net = inAmt - outAmt;
+  const tt = document.getElementById('chart-tooltip');
+  tt.innerHTML = `<strong style="display:block;margin-bottom:4px">${label}</strong>
+    <span style="color:var(--accent)">\u2197 Entr\u00e9es\u00a0: +${fmt(inAmt)}</span><br>
+    <span style="color:var(--danger)">\u2198 D\u00e9penses\u00a0: -${fmt(outAmt)}</span><br>
+    <span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net\u00a0: ${net>=0?'+':''}${fmt(net)}</span>`;
+  tt.style.display = 'block';
+  tt.style.left = (evt.clientX + 16) + 'px';
+  tt.style.top = (evt.clientY - 10) + 'px';
+};
+window.hideTooltip = function() { document.getElementById('chart-tooltip').style.display = 'none'; };
+window.scrollToFournisseurs = function() { document.getElementById('card-fournisseurs')?.scrollIntoView({behavior:'smooth',block:'start'}); };
 
 function filterByPeriod(txs) {
   const now = Date.now();
@@ -266,105 +301,133 @@ function filterByPeriod(txs) {
 // ─── CHART: FLUX HEBDO ───
 function renderCashflowChart(txs) {
   const filtered = filterByPeriod(txs);
-  if (!filtered.length) return;
+  if(!filtered.length) return;
 
-  // Grouper par semaine
   const weeks = {};
   filtered.forEach(t => {
     const d = new Date(t.date);
     const mon = new Date(d);
     mon.setDate(d.getDate() - ((d.getDay()+6)%7));
     const key = mon.toISOString().slice(0,10);
-    if (!weeks[key]) weeks[key] = { in:0, out:0, label:shortDate(key) };
+    if(!weeks[key]) weeks[key] = { in:0, out:0, label:shortDate(key) };
     const a = parseFloat(t.amount);
-    if (a > 0) weeks[key].in += a;
-    else weeks[key].out += Math.abs(a);
+    if(a>0) weeks[key].in += a; else weeks[key].out += Math.abs(a);
   });
 
   const data = Object.entries(weeks).sort((a,b)=>a[0].localeCompare(b[0])).map(([,v])=>v);
   const maxVal = Math.max(...data.map(d=>Math.max(d.in,d.out)),1);
-
   const svgEl = document.getElementById('cashflowChart');
-  const W = svgEl.parentElement.clientWidth - 40;
-  const H = 140;
-  const pad = {left:44,right:8,top:10,bottom:24};
+  const W = svgEl ? svgEl.parentElement.clientWidth - 40 : 500;
+  const H = 150;
+  const pad = {left:48,right:8,top:12,bottom:26};
   const chartW = W - pad.left - pad.right;
   const chartH = H - pad.top - pad.bottom;
-  const barW = Math.min(Math.floor(chartW / data.length) - 4, 32);
+  const slotW = chartW / data.length;
+  const barW = Math.min(Math.floor(slotW * 0.75), 36);
 
-  let svg = `<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">`;
+  let svg = `<svg id="cashflowChart" class="chart-svg" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible">`;
 
-  // Grille
-  [0,0.5,1].forEach(f => {
-    const y = pad.top + chartH * (1-f);
-    svg += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
-    if(f>0) svg += `<text x="${pad.left-6}" y="${y+4}" text-anchor="end" fill="rgba(255,255,255,0.25)" font-size="9">${Math.round(maxVal*f/1000)}k</text>`;
+  [0,0.25,0.5,0.75,1].forEach(f => {
+    const y = pad.top + chartH*(1-f);
+    svg += `<line x1="${pad.left}" y1="${y}" x2="${W-pad.right}" y2="${y}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
+    if(f>0) svg += `<text x="${pad.left-6}" y="${y+4}" text-anchor="end" fill="rgba(255,255,255,0.2)" font-size="9">${(maxVal*f/1000).toFixed(0)}k</text>`;
   });
 
-  // Barres
   data.forEach((d,i) => {
-    const x = pad.left + i * (chartW / data.length) + (chartW / data.length - barW) / 2;
-    const hIn = (d.in / maxVal) * chartH;
-    const hOut = (d.out / maxVal) * chartH;
-
-    // Barre entrées (verte)
-    if(d.in > 0) {
-      svg += `<rect x="${x}" y="${pad.top + chartH - hIn}" width="${barW/2-1}" height="${hIn}" rx="2" fill="rgba(74,222,128,0.5)"/>`;
-    }
-    // Barre sorties (rouge)
-    if(d.out > 0) {
-      svg += `<rect x="${x + barW/2}" y="${pad.top + chartH - hOut}" width="${barW/2-1}" height="${hOut}" rx="2" fill="rgba(248,113,113,0.45)"/>`;
-    }
-    // Label semaine
-    svg += `<text x="${x + barW/2}" y="${H - 4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="9">${d.label}</text>`;
+    const cx = pad.left + i*slotW + slotW/2;
+    const x = cx - barW/2;
+    const hIn = (d.in/maxVal)*chartH;
+    const hOut = (d.out/maxVal)*chartH;
+    const hw = barW/2 - 1;
+    if(d.in>0) svg += `<rect x="${x}" y="${pad.top+chartH-hIn}" width="${hw}" height="${hIn}" rx="2" fill="rgba(74,222,128,0.55)"/>`;
+    if(d.out>0) svg += `<rect x="${x+hw+2}" y="${pad.top+chartH-hOut}" width="${hw}" height="${hOut}" rx="2" fill="rgba(248,113,113,0.5)"/>`;
+    svg += `<rect x="${x-2}" y="${pad.top}" width="${barW+4}" height="${chartH}" fill="transparent" style="cursor:pointer"
+      onmouseover="showTooltip(event,'${d.label.replace(/'/g,'\\'')}',${d.in.toFixed(0)},${d.out.toFixed(0)})"
+      onmouseout="hideTooltip()"/>`;
+    svg += `<text x="${cx}" y="${H-4}" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="9">${d.label}</text>`;
   });
 
-  // Légende
-  svg += `<rect x="${pad.left}" y="2" width="8" height="8" rx="2" fill="rgba(74,222,128,0.5)"/>
-    <text x="${pad.left+11}" y="10" fill="rgba(255,255,255,0.4)" font-size="9">Entr\u00e9es</text>
-    <rect x="${pad.left+60}" y="2" width="8" height="8" rx="2" fill="rgba(248,113,113,0.45)"/>
-    <text x="${pad.left+71}" y="10" fill="rgba(255,255,255,0.4)" font-size="9">D\u00e9penses</text>`;
-
+  svg += `<rect x="${pad.left}" y="2" width="8" height="8" rx="2" fill="rgba(74,222,128,0.55)"/>
+    <text x="${pad.left+11}" y="10" fill="rgba(255,255,255,0.35)" font-size="9">Entr\u00e9es</text>
+    <rect x="${pad.left+58}" y="2" width="8" height="8" rx="2" fill="rgba(248,113,113,0.5)"/>
+    <text x="${pad.left+69}" y="10" fill="rgba(255,255,255,0.35)" font-size="9">D\u00e9penses</text>`;
   svg += '</svg>';
-  svgEl.outerHTML = svg.replace('<svg', `<svg id="cashflowChart" class="chart-svg" height="${H}"`);
+
+  const container = svgEl ? svgEl.parentElement : document.querySelector('.chart-card');
+  if(svgEl) svgEl.outerHTML = svg; else container.insertAdjacentHTML('beforeend', svg);
 
   const totalIn = filtered.filter(t=>parseFloat(t.amount)>0).reduce((s,t)=>s+parseFloat(t.amount),0);
-  const totalOut = filtered.filter(t=>parseFloat(t.amount)<0).reduce((s,t)=>s+parseFloat(t.amount),0);
-  const net = totalIn + totalOut;
+  const totalOut = Math.abs(filtered.filter(t=>parseFloat(t.amount)<0).reduce((s,t)=>s+parseFloat(t.amount),0));
+  const net = totalIn - totalOut;
   document.getElementById('chartSub').innerHTML =
-    `<span style="color:var(--accent)">${fmt(totalIn)} entr\u00e9es</span> &middot; ` +
-    `<span style="color:var(--danger)">${fmt(Math.abs(totalOut))} d\u00e9penses</span> &middot; ` +
-    `<span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net ${fmt(net)}</span>`;
+    `<span style="color:var(--accent)">+${fmt(totalIn)} entr\u00e9es</span> \u00b7 ` +
+    `<span style="color:var(--danger)">-${fmt(totalOut)} d\u00e9penses</span> \u00b7 ` +
+    `<span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net ${net>=0?'+':''}${fmt(net)}</span>`;
 }
 
 // ─── CHART: DONUT ───
-function renderDonut(txs) {
-  const filtered = filterByPeriod(txs).filter(t=>parseFloat(t.amount)<0);
-  if(!filtered.length) return;
+function labelGroup(label, isExpense) {
+  if(!label) return isExpense ? 'Autres d\u00e9penses' : 'Autres entr\u00e9es';
+  const mccMatch = label.match(/mcc:\s*(\d+)/i);
+  if(mccMatch) {
+    const mcc = parseInt(mccMatch[1]);
+    if(mcc>=5400&&mcc<=5499) return 'Alimentation';
+    if(mcc>=5900&&mcc<=5999) return 'Commerce';
+    if(mcc>=7000&&mcc<=7999) return 'Services';
+    if(mcc>=5200&&mcc<=5399) return 'Magasins';
+    if(mcc>=4800&&mcc<=4899) return 'T\u00e9l\u00e9com';
+    if(mcc>=4900&&mcc<=4999) return '\u00c9nergie & eau';
+    return 'Achats CB';
+  }
+  if(!isExpense) {
+    if(/vrst|virement/i.test(label)) return 'Virements re\u00e7us';
+    if(/depot|d\u00e9p\u00f4t|esp|chq/i.test(label)) return 'D\u00e9p\u00f4ts espaces';
+    if(/client|facture|f-20/i.test(label)) return 'R\u00e8glements clients';
+    if(/vnt|vente/i.test(label)) return 'Ventes';
+    return 'Autres entr\u00e9es';
+  }
+  if(/vrst|virement/i.test(label)) return 'Virements \u00e9mis';
+  if(/salaire|paie|urssaf|social|cotis/i.test(label)) return 'Salaires & charges';
+  if(/loyer|bail|loc/i.test(label)) return 'Loyer';
+  if(/assurance/i.test(label)) return 'Assurance';
+  if(/orange|sfr|bouygues|free|telecom/i.test(label)) return 'T\u00e9l\u00e9phonie';
+  if(/edf|engie|gaz|eau|suez/i.test(label)) return '\u00c9nergie';
+  if(/amazon|fnac|darty|ldlc/i.test(label)) return 'Achats en ligne';
+  if(/prelevement|prlv/i.test(label)) return 'Pr\u00e9l\u00e8vements';
+  if(/frais|commission|agios/i.test(label)) return 'Frais bancaires';
+  if(/intermarche|leclerc|auchan|carrefour|casino|super|hyper/i.test(label)) return 'Alimentation';
+  return 'Autres d\u00e9penses';
+}
 
-  // Grouper par catégorie ou label court
+function renderDonut(txs) {
+  const filtered = filterByPeriod(txs);
+  const isOut = currentDonutTab === 'out';
+  const subset = filtered.filter(t => isOut ? parseFloat(t.amount)<0 : parseFloat(t.amount)>0);
+  if(!subset.length) return;
+
   const groups = {};
-  filtered.forEach(t => {
-    const cat = t.categories?.[0]?.label || labelGroup(t.label);
+  subset.forEach(t => {
+    const cat = t.categories?.[0]?.label || labelGroup(t.label, isOut);
     const amt = Math.abs(parseFloat(t.amount));
     groups[cat] = (groups[cat]||0) + amt;
   });
 
   const sorted = Object.entries(groups).sort((a,b)=>b[1]-a[1]).slice(0,5);
   const total = sorted.reduce((s,[,v])=>s+v,0);
-  const COLORS = ['#4ade80','#60a5fa','#fbbf24','#a78bfa','#f87171'];
+  const COLORS = isOut
+    ? ['#f87171','#fbbf24','#fb923c','#e879f9','#94a3b8']
+    : ['#4ade80','#60a5fa','#34d399','#a78bfa','#38bdf8'];
 
-  // SVG donut
-  const R = 52, r = 32, cx = 65, cy = 65;
+  const R=52, r=30, cx=65, cy=65;
   let startAngle = -Math.PI/2;
   let paths = '';
   sorted.forEach(([,val],i) => {
-    const angle = (val/total) * 2 * Math.PI;
-    const x1 = cx + R*Math.cos(startAngle), y1 = cy + R*Math.sin(startAngle);
-    const x2 = cx + R*Math.cos(startAngle+angle), y2 = cy + R*Math.sin(startAngle+angle);
-    const ix1 = cx + r*Math.cos(startAngle), iy1 = cy + r*Math.sin(startAngle);
-    const ix2 = cx + r*Math.cos(startAngle+angle), iy2 = cy + r*Math.sin(startAngle+angle);
-    const large = angle > Math.PI ? 1 : 0;
+    const angle = (val/total)*2*Math.PI;
+    const x1=cx+R*Math.cos(startAngle), y1=cy+R*Math.sin(startAngle);
+    const x2=cx+R*Math.cos(startAngle+angle), y2=cy+R*Math.sin(startAngle+angle);
+    const ix1=cx+r*Math.cos(startAngle), iy1=cy+r*Math.sin(startAngle);
+    const ix2=cx+r*Math.cos(startAngle+angle), iy2=cy+r*Math.sin(startAngle+angle);
+    const large = angle>Math.PI?1:0;
     paths += `<path d="M${x1},${y1} A${R},${R} 0 ${large} 1 ${x2},${y2} L${ix2},${iy2} A${r},${r} 0 ${large} 0 ${ix1},${iy1} Z" fill="${COLORS[i]}" opacity="0.85"/>`;
     startAngle += angle;
   });
@@ -374,31 +437,15 @@ function renderDonut(txs) {
       <div class="legend-dot" style="background:${COLORS[i]}"></div>
       <div class="legend-label">${label}</div>
       <div class="legend-val">${fmt(val)}</div>
-    </div>`
-  ).join('');
+    </div>`).join('');
 
   document.getElementById('donutWrap').innerHTML = `
     <svg class="donut-svg" width="130" height="130" viewBox="0 0 130 130">
       ${paths}
-      <text x="${cx}" y="${cy-6}" text-anchor="middle" fill="rgba(255,255,255,0.5)" font-size="9">Total</text>
+      <text x="${cx}" y="${cy-6}" text-anchor="middle" fill="rgba(255,255,255,0.4)" font-size="9">Total</text>
       <text x="${cx}" y="${cy+10}" text-anchor="middle" fill="white" font-size="12" font-weight="600">${fmt(total)}</text>
     </svg>
     <div class="legend">${legend}</div>`;
-  document.getElementById('donutSub').textContent = `Top 5 cat\u00e9gories \u00b7 ${currentPeriod === '1m' ? '30' : '90'} derniers jours`;
-}
-
-function labelGroup(label) {
-  if(!label) return 'Autre';
-  if(/virement|transfer/i.test(label)) return 'Virements';
-  if(/salaire|paie|social/i.test(label)) return 'Salaires';
-  if(/orange|sfr|bouygues|telecom/i.test(label)) return 'T\u00e9l\u00e9phonie';
-  if(/edf|energie|gaz|eau/i.test(label)) return '\u00c9nergie';
-  if(/amazon|fnac|darty/i.test(label)) return 'Achats';
-  if(/loyer|bail/i.test(label)) return 'Loyer';
-  if(/assurance/i.test(label)) return 'Assurance';
-  if(/impot|urssaf|fisc/i.test(label)) return 'Taxes';
-  if(/cb |carte|action|mcc/i.test(label)) return 'CB Divers';
-  return 'Autre';
 }
 
 function renderCharts(txs) {
@@ -470,7 +517,7 @@ function renderKPIs(invoices, suppliers) {
 
   document.getElementById('kpi1').innerHTML = `<div class="kpi-label">Factures clients en cours</div><div class="kpi-value" style="color:var(--accent)">${fmt(totalOut)}</div><div class="kpi-sub">${outstanding.length} \u00e0 encaisser</div><div class="kpi-bar" style="background:var(--accent);opacity:.3"></div>`;
   document.getElementById('kpi2').innerHTML = `<div class="kpi-label">Factures en retard</div><div class="kpi-value" style="color:${late.length?'var(--danger)':'var(--accent)'}">${fmt(totalLate)}</div><div class="kpi-sub">${late.length} facture${late.length!==1?'s':''}</div><div class="kpi-bar" style="background:var(--danger);opacity:.3"></div>`;
-  document.getElementById('kpi3').innerHTML = `<div class="kpi-label">Charges fournisseurs (30j)</div><div class="kpi-value" style="color:var(--warn)">${fmt(totalSup)}</div><div class="kpi-sub">${suppliers.length} factures</div><div class="kpi-bar" style="background:var(--warn);opacity:.3"></div>`;
+  document.getElementById('kpi3').innerHTML = `<div class="kpi-label">Charges fournisseurs (30j)</div><div class="kpi-value" style="color:var(--warn)">${fmt(totalSup)}</div><div class="kpi-sub">${suppliers.length} factures</div><span class="kpi-link" onclick="scrollToFournisseurs()">Voir le d\u00e9tail \u2193</span><div class="kpi-bar" style="background:var(--warn);opacity:.3"></div>`;
 
   const az = document.getElementById('alertsZone');
   az.innerHTML = '';
@@ -483,14 +530,24 @@ function renderKPIs(invoices, suppliers) {
   il.innerHTML = invoices.length===0?'<div class="empty">Aucune facture</div>':'';
   invoices.slice(0,6).forEach(inv => {
     const paid = inv.status==='paid';
-    il.innerHTML += `<div class="flux-item"><div class="flux-left"><div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div><div><div class="flux-name">${inv.invoice_number}${statusTag(inv)}</div><div class="flux-date">${shortDate(inv.date)}</div></div></div><div class="flux-amount ${paid?'positive':inv.status==='late'?'negative':''}">${fmt(inv.amount)}</div></div>`;
+    const clientName = extractName(inv.label);
+    il.innerHTML += `<div class="flux-item"><div class="flux-left"><div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div><div>
+      <div class="flux-name">${inv.invoice_number}${statusTag(inv)}</div>
+      ${clientName?`<div class="flux-date" style="color:var(--muted2)">${clientName}</div>`:''}
+      <div class="flux-date">${shortDate(inv.date)}</div>
+    </div></div><div class="flux-amount ${paid?'positive':inv.status==='late'?'negative':''}">${fmt(inv.amount)}</div></div>`;
   });
 
   document.getElementById('supSub').textContent = `${suppliers.length} factures \u00b7 Pennylane`;
   const sl = document.getElementById('supList');
   sl.innerHTML = suppliers.length===0?'<div class="empty">Aucune charge</div>':'';
-  suppliers.slice(0,6).forEach(sup => {
-    sl.innerHTML += `<div class="flux-item"><div class="flux-left"><div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div><div><div class="flux-name">${sup.invoice_number||'Facture'}</div><div class="flux-date">${shortDate(sup.date)}</div></div></div><div class="flux-amount negative">\u2212${fmt(sup.amount)}</div></div>`;
+  suppliers.slice(0,8).forEach(sup => {
+    const supName = extractName(sup.label);
+    sl.innerHTML += `<div class="flux-item"><div class="flux-left"><div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div><div>
+      <div class="flux-name">${sup.invoice_number||'Facture'}</div>
+      ${supName?`<div class="flux-date" style="color:var(--muted2)">${supName}</div>`:''}
+      <div class="flux-date">${shortDate(sup.date)}</div>
+    </div></div><div class="flux-amount negative">\u2212${fmt(sup.amount)}</div></div>`;
   });
 }
 
