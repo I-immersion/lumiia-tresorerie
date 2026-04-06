@@ -278,6 +278,7 @@ window.setDonutTab = function(tab) {
   renderDonut(allTransactions);
 };
 window.showTooltip = function(evt, label, inAmt, outAmt) {
+  inAmt = parseFloat(inAmt); outAmt = parseFloat(outAmt);
   const net = inAmt - outAmt;
   const tt = document.getElementById('chart-tooltip');
   tt.innerHTML = `<strong style="display:block;margin-bottom:4px">${label}</strong>
@@ -342,7 +343,7 @@ function renderCashflowChart(txs) {
     if(d.in>0) svg += `<rect x="${x}" y="${pad.top+chartH-hIn}" width="${hw}" height="${hIn}" rx="2" fill="rgba(74,222,128,0.55)"/>`;
     if(d.out>0) svg += `<rect x="${x+hw+2}" y="${pad.top+chartH-hOut}" width="${hw}" height="${hOut}" rx="2" fill="rgba(248,113,113,0.5)"/>`;
     svg += `<rect x="${x-2}" y="${pad.top}" width="${barW+4}" height="${chartH}" fill="transparent" style="cursor:pointer"
-      onmouseover="showTooltip(event,'${d.label.replace(/'/g,'\\'')}',${d.in.toFixed(0)},${d.out.toFixed(0)})"
+      onmouseover="showTooltip(event,this.dataset.label,this.dataset.in,this.dataset.out)" data-label="${d.label}" data-in="${d.in.toFixed(0)}" data-out="${d.out.toFixed(0)}"
       onmouseout="hideTooltip()"/>`;
     svg += `<text x="${cx}" y="${H-4}" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="9">${d.label}</text>`;
   });
