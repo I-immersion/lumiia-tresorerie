@@ -397,7 +397,15 @@ function filterByPeriod(txs) {
 // ─── CHART: FLUX HEBDO ───
 function renderCashflowChart(txs) {
   const filtered = filterByPeriod(txs);
-  if(!filtered.length) return;
+  if(!filtered.length) {
+    const svgEl = document.getElementById('cashflowChart');
+    if(svgEl) svgEl.parentElement.innerHTML = `<div style="text-align:center;color:var(--muted2);font-size:12px;padding:40px 0">Aucune donn\u00e9e sur cette p\u00e9riode</div>`;
+    return;
+  }
+  // Vérifier si on a moins de données que demandé
+  const daysAvailable = txs.length ? Math.round((new Date(txs[0].date) - new Date(txs[txs.length-1].date)) / 86400000) : 0;
+  const daysRequested = PERIOD_DAYS[currentPeriod] || 30;
+  const isPartial = daysAvailable < daysRequested * 0.8;
 
   const weeks = {};
   filtered.forEach(t => {
@@ -455,10 +463,11 @@ function renderCashflowChart(txs) {
   const totalIn = filtered.filter(t=>parseFloat(t.amount)>0).reduce((s,t)=>s+parseFloat(t.amount),0);
   const totalOut = Math.abs(filtered.filter(t=>parseFloat(t.amount)<0).reduce((s,t)=>s+parseFloat(t.amount),0));
   const net = totalIn - totalOut;
+  const partialNote = isPartial ? ` <span style="color:var(--warn);font-size:10px">\u26a0\ufe0f Donn\u00e9es disponibles depuis le ${shortDate(txs[txs.length-1]?.date)}</span>` : '';
   document.getElementById('chartSub').innerHTML =
     `<span style="color:var(--accent)">+${fmt(totalIn)} entr\u00e9es</span> \u00b7 ` +
     `<span style="color:var(--danger)">-${fmt(totalOut)} d\u00e9penses</span> \u00b7 ` +
-    `<span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net ${net>=0?'+':''}${fmt(net)}</span>`;
+    `<span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net ${net>=0?'+':''}${fmt(net)}</span>${partialNote}`;
 }
 
 // ─── CHART: DONUT ───
@@ -697,7 +706,7 @@ async function load() {
     const h = { Authorization:`Bearer ${token}` };
     const [banksRes, txRes, invRes, supRes] = await Promise.all([
       fetch(`${PROXY}/bank_accounts`,{headers:h}),
-      fetch(`${PROXY}/transactions?limit=100`,{headers:h}),
+      fetch(`${PROXY}/transactions?limit=300`,{headers:h}),
       fetch(`${PROXY}/customer_invoices?limit=10`,{headers:h}),
       fetch(`${PROXY}/supplier_invoices?limit=8`,{headers:h}),
     ]);
