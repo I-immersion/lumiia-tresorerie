@@ -153,7 +153,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.3</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.4</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -169,7 +169,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.3</div>
+      <div class="header-version">v2.4</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -228,11 +228,14 @@
     <!-- ALERTES -->
     <div class="alerts" id="alertsZone"></div>
 
-    <!-- TRANSACTIONS -->
-    <div class="section-title">Transactions r&eacute;centes</div>
+    <!-- MOUVEMENTS NON FACTURÉS -->
+    <div class="section-title">Mouvements non factur&eacute;s</div>
     <div class="accordion-section">
       <div class="accordion-header" onclick="toggleAccordion('txAccordion')">
-        <div class="accordion-title">Transactions</div>
+        <div>
+          <div class="accordion-title">Mouvements bancaires bruts</div>
+          <div style="font-size:11px;color:var(--muted2);margin-top:2px">CB, virements, d&eacute;p&ocirc;ts &mdash; hors factures</div>
+        </div>
         <div style="display:flex;align-items:center;gap:12px">
           <div class="accordion-meta" id="txMeta">Chargement&hellip;</div>
           <span class="accordion-arrow" id="txArrow">&#9660;</span>
@@ -292,6 +295,7 @@ const PROXY = 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane';
 
 // ─── STATE ───
 let allTransactions = [];
+let allInvoiceRefs = new Set(); // refs des factures pour filtrer les transactions
 let currentPeriod = '1m';
 let currentDonutTab = 'out';
 
@@ -577,12 +581,15 @@ function renderCharts(txs) {
 
 // ─── BANKS ───
 function renderBanks(banks) {
-  const active = banks.filter(b => parseFloat(b.balance) > 0);
-  const total = active.reduce((s,b)=>s+parseFloat(b.balance),0);
+  // Identifier les comptes Finom (petits comptes i-immersion / LUMIIA Studios)
+  const FINOM_IDS = [2516191, 2516190]; // LUMIIA Studios + i-immersion
+  const finomAccounts = banks.filter(b => FINOM_IDS.includes(b.id));
+  const otherAccounts = banks.filter(b => !FINOM_IDS.includes(b.id) && parseFloat(b.balance) > 0);
+  const finomTotal = finomAccounts.reduce((s,b) => s+parseFloat(b.balance), 0);
+  const grandTotal = banks.filter(b => parseFloat(b.balance) > 0).reduce((s,b) => s+parseFloat(b.balance), 0);
 
   function cleanBankName(name) {
     if(!name) return 'Compte';
-    // Raccourcir le nom carte bancaire trop long
     if(name.length > 30) {
       const m = name.match(/^(\w+\s+\w+)/);
       return m ? m[1] : name.substring(0, 28) + '\u2026';
@@ -591,44 +598,70 @@ function renderBanks(banks) {
   }
 
   let html = '';
-  active.forEach(b => {
+
+  // Bloc Finom groupé
+  if(finomAccounts.length) {
+    const subLines = finomAccounts.map(b =>
+      `<span style="font-size:10px;color:var(--muted2)">${cleanBankName(b.name)} ${fmt(b.balance,2)}</span>`
+    ).join('<span style="color:var(--border);margin:0 4px">·</span>');
+
+    html += `<div class="bank-card" style="min-width:220px">
+      <div class="bank-name">Finom</div>
+      <div class="bank-amount" style="color:var(--text);font-size:26px">${fmt(finomTotal,2)}</div>
+      <div style="margin-top:6px;display:flex;flex-wrap:wrap;gap:4px">${subLines}</div>
+      <div class="bank-bar" style="background:rgba(255,255,255,0.15)"></div>
+    </div>`;
+  }
+
+  // Autres comptes
+  otherAccounts.forEach(b => {
     const isMain = parseFloat(b.balance) > 10000;
-    const name = cleanBankName(b.name);
     html += `<div class="bank-card ${isMain?'main':''}">
-      <div class="bank-name">${name}</div>
+      <div class="bank-name">${cleanBankName(b.name)}</div>
       <div class="bank-amount" style="color:${isMain?'var(--accent)':'var(--text)'}">${fmt(b.balance,2)}</div>
       <div class="bank-bar"></div>
     </div>`;
   });
+
+  // Total consolidé
   html += `<div class="bank-card total">
     <div class="bank-name">Total consolid\u00e9</div>
-    <div class="bank-amount" style="color:var(--info)">${fmt(total,2)}</div>
+    <div class="bank-amount" style="color:var(--info)">${fmt(grandTotal,2)}</div>
     <div class="bank-bar"></div>
   </div>`;
+
   document.getElementById('banksRow').innerHTML = html;
 }
 
 // ─── TRANSACTIONS LIST ───
 function renderTxList(txs) {
-  const shown = filterByPeriod(txs).slice(0,30);
-  const total = filterByPeriod(txs).length;
-  document.getElementById('txMeta').textContent = `${total} op\u00e9rations`;
+  // Filtrer les transactions non rattachées à une facture
+  const filtered = filterByPeriod(txs).filter(t =>
+    !t.matched_invoices?.url || !allInvoiceRefs.has(t.transaction_reference)
+  );
+  const shown = filtered.slice(0,30);
+  const netUnmatched = filtered.reduce((s,t) => s+parseFloat(t.amount), 0);
+  document.getElementById('txMeta').textContent = `${filtered.length} mouvement${filtered.length!==1?'s':''}`;
   let html = '';
   shown.forEach(t => {
     const amt = parseFloat(t.amount);
     const isIn = amt > 0;
     const cat = t.categories?.[0]?.label;
     const catTag = cat ? `<span class="tx-tag tag-cat">${cat}</span>` : '';
+    // Essayer de rendre le label plus lisible
+    const rawLabel = t.label || 'Mouvement';
+    const cleanLabel = rawLabel.replace(/\s+/g,' ').trim();
     html += `<div class="tx-item">
       <div class="tx-icon" style="background:${isIn?'rgba(74,222,128,.1)':'rgba(248,113,113,.08)'}">${isIn?'\u2197':'\u2198'}</div>
       <div style="flex:1;min-width:0">
-        <div class="tx-label" style="color:var(--muted2);font-size:11px;font-weight:400">${t.label||'Op\u00e9ration'}${catTag}</div>
+        <div class="tx-label" style="color:var(--muted2);font-size:11px;font-weight:400">${cleanLabel}${catTag}</div>
         <div class="tx-date">${shortDate(t.date)}</div>
       </div>
       <div class="tx-amount ${isIn?'positive':'negative'}">${isIn?'+':''}${fmt(amt)}</div>
     </div>`;
   });
-  document.getElementById('txList').innerHTML = html || '<div class="empty">Aucune transaction</div>';
+  if(!html) html = '<div class="empty" style="padding:16px">Tous les mouvements sont rattach\u00e9s \u00e0 des factures \u2713</div>';
+  document.getElementById('txList').innerHTML = html;
 }
 
 // ─── KPIs & FACTURES ───
@@ -738,6 +771,11 @@ async function load() {
     const sups  = (await supRes.json()).items || [];
 
     allTransactions = txs;
+    // Stocker les références factures pour filtrage
+    allInvoiceRefs = new Set([
+      ...invs.map(i => i.transaction_reference).filter(Boolean),
+      ...sups.map(s => s.transaction_reference).filter(Boolean)
+    ]);
 
     document.getElementById('syncBadge').textContent = '\u25cf Pennylane synchronis\u00e9';
     document.getElementById('syncBadge').className = 'badge ok';
