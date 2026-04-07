@@ -145,6 +145,53 @@
     @keyframes pulse{0%,100%{opacity:1}50%{opacity:.5}}
     @keyframes fadeIn{from{opacity:0;transform:translateY(-4px)}to{opacity:1;transform:translateY(0)}}
     @media(max-width:900px){.charts-grid{grid-template-columns:1fr;} .grid2{grid-template-columns:1fr;} .kpis{grid-template-columns:1fr 1fr;}}
+
+/* == Charges récurrentes == */
+#chargesNavBtn{background:none;border:1px solid var(--border);color:var(--muted2);border-radius:8px;padding:5px 12px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:all .2s;}
+#chargesNavBtn:hover{border-color:var(--accent);color:var(--accent);}
+#chargesNavBtn.has-pending{border-color:var(--warn);color:var(--warn);}
+#section-charges{margin-top:20px;display:none;}
+#section-charges.visible{display:block;}
+.charges-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.charges-title{font-size:13px;font-weight:500;display:flex;align-items:center;gap:8px;}
+.charges-total-badge{background:rgba(74,222,128,0.12);color:var(--accent);border:1px solid rgba(74,222,128,0.2);border-radius:12px;padding:2px 10px;font-size:11px;font-weight:700;}
+.btn-sync-charges,.btn-add-charge{border:none;border-radius:8px;padding:6px 12px;font-size:12px;font-family:'DM Sans',sans-serif;cursor:pointer;transition:opacity .2s;}
+.btn-sync-charges{background:var(--surface2);color:var(--muted2);}
+.btn-add-charge{background:var(--accent);color:#0d0f14;font-weight:600;}
+.btn-sync-charges:hover,.btn-add-charge:hover{opacity:.85;}
+.charges-group-label{font-size:10.5px;font-weight:600;text-transform:uppercase;letter-spacing:.06em;color:var(--muted2);margin:16px 0 8px;padding-bottom:6px;border-bottom:1px solid var(--border);}
+.charge-row{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:11px 14px;margin-bottom:6px;display:flex;align-items:center;gap:10px;transition:border-color .2s;}
+.charge-row:hover{border-color:rgba(255,255,255,0.15);}
+.charge-row.pending{border-left:3px solid var(--warn);}
+.charge-row.confirmed{border-left:3px solid var(--accent);}
+.charge-icon{font-size:17px;flex-shrink:0;}
+.charge-info{flex:1;min-width:0;}
+.charge-name{font-size:12.5px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.charge-meta{font-size:11px;color:var(--muted2);margin-top:2px;}
+.charge-amount{font-size:13px;font-weight:700;white-space:nowrap;text-align:right;}
+.charge-amount small{display:block;font-size:10px;font-weight:400;color:var(--muted2);}
+.charge-btns{display:flex;gap:4px;flex-shrink:0;}
+.cq-btn{width:26px;height:26px;border-radius:6px;border:1px solid var(--border);background:none;cursor:pointer;font-size:13px;display:flex;align-items:center;justify-content:center;transition:all .15s;}
+.cq-btn:hover{transform:scale(1.1);}
+.cq-btn.confirm{border-color:var(--accent);}.cq-btn.confirm:hover{background:rgba(74,222,128,0.1);}
+.cq-btn.reject{border-color:var(--danger);}.cq-btn.reject:hover{background:rgba(248,113,113,0.1);}
+.cq-btn.edit{border-color:var(--info);}.cq-btn.edit:hover{background:rgba(96,165,250,0.1);}
+.cq-btn.delete{border-color:var(--muted2);}.cq-btn.delete:hover{background:rgba(107,114,128,0.15);}
+#chargesModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;}
+#chargesModal.open{display:flex;}
+.charges-modal-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:400px;margin:16px;}
+.modal-title{font-size:15px;font-weight:600;margin-bottom:22px;}
+.modal-field{margin-bottom:14px;}
+.modal-field label{display:block;font-size:11px;color:var(--muted2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
+.modal-field input,.modal-field select{width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:'DM Sans',sans-serif;box-sizing:border-box;outline:none;transition:border-color .2s;}
+.modal-field input:focus,.modal-field select:focus{border-color:rgba(74,222,128,0.4);}
+.modal-btns{display:flex;gap:8px;margin-top:22px;}
+.modal-btn-cancel,.modal-btn-save{flex:1;border:none;border-radius:8px;padding:10px;font-size:13px;font-family:'DM Sans',sans-serif;cursor:pointer;font-weight:500;}
+.modal-btn-cancel{background:var(--surface2);color:var(--muted2);}
+.modal-btn-save{background:var(--accent);color:#0d0f14;font-weight:600;}
+.charges-summary{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:14px;display:flex;justify-content:space-between;align-items:center;}
+.charges-summary-label{font-size:11.5px;color:var(--muted2);}
+.charges-summary-amount{font-family:'DM Serif Display',serif;font-size:24px;letter-spacing:-0.5px;}
   </style>
 </head>
 <body>
@@ -153,7 +200,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.4</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.5</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -169,11 +216,12 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.4</div>
+      <div class="header-version">v2.5</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
       <div style="font-size:12px;color:var(--muted2)" id="headerDate"></div>
+      <button id="chargesNavBtn" onclick="toggleChargesSection()">&#128200; Charges</button>
       <button class="logout-btn" id="logoutBtn">D&eacute;connexion</button>
     </div>
   </div>
@@ -276,11 +324,60 @@
         </div>
       </div>
     </div>
+
+    <!-- CHARGES RECURRENTES -->
+    <div id="section-charges" class="card">
+      <div class="charges-header">
+        <div class="charges-title">&#128200; Charges r&eacute;currentes<span id="chargesTotalBadge" class="charges-total-badge">0 &euro;/mois</span></div>
+        <div style="display:flex;gap:8px">
+          <button class="btn-sync-charges" onclick="syncChargesFromPennylane()">&#8635; D&eacute;tecter</button>
+          <button class="btn-add-charge" onclick="openChargeModal(null)">+ Ajouter</button>
+        </div>
+      </div>
+      <div>
+        <div class="charges-group-label">&#10067; &Agrave; qualifier <span id="chargesPendingCount">0</span></div>
+        <div id="chargesPendingList"></div>
+      </div>
+      <div>
+        <div class="charges-group-label">&#10003; Confirm&eacute;es <span id="chargesConfirmedCount">0</span></div>
+        <div id="chargesConfirmedList"></div>
+      </div>
+      <div class="charges-summary">
+        <div class="charges-summary-label">Total charges mensuelles confirm&eacute;es</div>
+        <div id="chargesSummaryTotal" class="charges-summary-amount">&mdash;&nbsp;&euro;</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="chargesModal">
+  <div class="charges-modal-box">
+    <div class="modal-title" id="chargesModalTitle">Qualifier une charge</div>
+    <div class="modal-field"><label>Nom du fournisseur</label><input type="text" id="cmName" placeholder="Ex : Loyer, ENGIE, AXA..." /></div>
+    <div class="modal-field"><label>Montant (&euro;)</label><input type="number" id="cmAmount" placeholder="0.00" step="0.01" /></div>
+    <div class="modal-field"><label>P&eacute;riodicit&eacute;</label>
+      <select id="cmPeriod"><option value="mensuel">Mensuel</option><option value="trimestriel">Trimestriel</option><option value="annuel">Annuel</option></select>
+    </div>
+    <div class="modal-field"><label>Cat&eacute;gorie</label>
+      <select id="cmCategory">
+        <option value="loyer">Loyer</option><option value="energie">Energie</option>
+        <option value="assurance">Assurance</option><option value="credit">Credit / pret</option>
+        <option value="prestataire">Prestataire</option><option value="abonnement">Abonnement</option>
+        <option value="fournitures">Fournitures</option><option value="autre">Autre</option>
+      </select>
+    </div>
+    <div class="modal-field"><label>Note (optionnel)</label><input type="text" id="cmNote" placeholder="Ex : Contrat no..." /></div>
+    <input type="hidden" id="cmId" />
+    <div class="modal-btns">
+      <button class="modal-btn-cancel" onclick="closeChargeModal()">Annuler</button>
+      <button class="modal-btn-save" onclick="saveCharge()">Enregistrer</button>
+    </div>
   </div>
 </div>
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
+import { getDatabase, ref, onValue, set, update, remove } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js';
 import { getAuth, signInWithEmailAndPassword, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-auth.js';
 
 const firebaseConfig = {
@@ -291,6 +388,7 @@ const firebaseConfig = {
 };
 const app = initializeApp(firebaseConfig);
 const auth = getAuth(app);
+const db = getDatabase(app);
 const PROXY = 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane';
 
 // ─── STATE ───
@@ -739,7 +837,7 @@ const loginBtn = document.getElementById('loginBtn');
 const loginError = document.getElementById('loginError');
 
 onAuthStateChanged(auth, user => {
-  if(user){ loginScreen.style.display='none'; appDiv.style.display='block'; load(); }
+  if(user){ loginScreen.style.display='none'; appDiv.style.display='block'; load(); initChargesModule(); }
   else{ loginScreen.style.display='flex'; appDiv.style.display='none'; }
 });
 loginBtn.addEventListener('click', async () => {
@@ -791,6 +889,129 @@ async function load() {
     document.getElementById('alertsZone').innerHTML = `<div class="alert danger"><div><strong>Impossible de contacter Pennylane</strong><span>${e.message}</span></div></div>`;
   }
 }
+
+// == CHARGES RECURRENTES v1.0 ==
+const CHARGE_ICONS = {loyer:'house',energie:'lightning',assurance:'shield',credit:'bank',prestataire:'worker',abonnement:'repeat',fournitures:'cart',autre:'pin'};
+const CHARGE_EMOJI = {loyer:'\uD83C\uDFE0',energie:'\u26A1',assurance:'\uD83D\uDEE1\uFE0F',credit:'\uD83C\uDFE6',prestataire:'\uD83D\uDC77',abonnement:'\uD83D\uDD01',fournitures:'\uD83D\uDED2',autre:'\uD83D\uDCCC'};
+let _chargesData = {}, _chargesVisible = false, _editingId = null;
+
+function initChargesModule() {
+  onValue(ref(db,'tresorerie/charges_recurrentes'), snap => {
+    _chargesData = snap.val() || {};
+    renderCharges();
+  });
+}
+
+function toggleChargesSection() {
+  _chargesVisible = !_chargesVisible;
+  document.getElementById('section-charges').classList.toggle('visible', _chargesVisible);
+  document.getElementById('chargesNavBtn').style.color = _chargesVisible ? 'var(--accent)' : '';
+}
+
+function renderCharges() {
+  const pending = [], confirmed = [];
+  for (const [id,c] of Object.entries(_chargesData)) {
+    if (c.status==='confirmed') confirmed.push({id,...c});
+    else if (c.status!=='rejected') pending.push({id,...c});
+  }
+  confirmed.sort((a,b)=>b.monthlyRef-a.monthlyRef);
+  pending.sort((a,b)=>b.monthlyRef-a.monthlyRef);
+  document.getElementById('chargesPendingCount').textContent = pending.length;
+  document.getElementById('chargesConfirmedCount').textContent = confirmed.length;
+  document.getElementById('chargesNavBtn').classList.toggle('has-pending', pending.length>0);
+  const emptyPend = '<div class="empty">Aucune charge \u00e0 qualifier \u2713</div>';
+  const emptyConf = '<div class="empty">Aucune charge confirm\u00e9e</div>';
+  document.getElementById('chargesPendingList').innerHTML = pending.length ? pending.map(c=>chargeRowHtml(c,'pending')).join('') : emptyPend;
+  document.getElementById('chargesConfirmedList').innerHTML = confirmed.length ? confirmed.map(c=>chargeRowHtml(c,'confirmed')).join('') : emptyConf;
+  const total = confirmed.reduce((s,c)=>s+(parseFloat(c.monthlyRef)||0),0);
+  document.getElementById('chargesTotalBadge').textContent = Math.round(total)+'\u00a0\u20ac/mois';
+  document.getElementById('chargesSummaryTotal').textContent = total.toFixed(2)+'\u00a0\u20ac';
+}
+
+function chargeRowHtml(c, status) {
+  const icon = CHARGE_EMOJI[c.category] || '\uD83D\uDCCC';
+  const ref_ = parseFloat(c.monthlyRef||0);
+  const per = c.periodicity==='mensuel'?'/mois':c.periodicity==='trimestriel'?'/trim.':'/an';
+  const eq = c.periodicity==='trimestriel'?' ('+(ref_/3).toFixed(2)+'\u00a0\u20ac/mois)':c.periodicity==='annuel'?' ('+(ref_/12).toFixed(2)+'\u00a0\u20ac/mois)':'';
+  const src_ = c.source==='manual'?'<span style="font-size:10px;color:var(--info);margin-left:5px">manuel</span>':'';
+  const det = c.monthsDetected?'<span style="font-size:10px;color:var(--muted2);margin-left:4px">'+c.monthsDetected+'M</span>':'';
+  const btns = status==='pending'
+    ? `<button class="cq-btn confirm" onclick="confirmCharge('${c.id}')" title="Confirmer">\u2713</button><button class="cq-btn edit" onclick="openChargeModal('${c.id}')" title="Modifier">\u270e</button><button class="cq-btn reject" onclick="rejectCharge('${c.id}')" title="Ponctuel">\u2717</button>`
+    : `<button class="cq-btn edit" onclick="openChargeModal('${c.id}')" title="Modifier">\u270e</button><button class="cq-btn delete" onclick="deleteCharge('${c.id}')" title="Supprimer">\uD83D\uDDD1\uFE0F</button>`;
+  return `<div class="charge-row ${status}"><div class="charge-icon">${icon}</div><div class="charge-info"><div class="charge-name">${_esc(c.name)}${src_}</div><div class="charge-meta">${c.category||'autre'}${c.note?' \u00b7 '+_esc(c.note):''}${det}</div></div><div class="charge-amount">${ref_.toFixed(2)}\u00a0\u20ac<small>${per}${eq}</small></div><div class="charge-btns">${btns}</div></div>`;
+}
+
+async function confirmCharge(id) { await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'confirmed'}); }
+async function rejectCharge(id) { if(!confirm('Marquer comme ponctuel et masquer ?')) return; await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'rejected'}); }
+async function deleteCharge(id) { if(!confirm('Supprimer d\u00e9finitivement ?')) return; await remove(ref(db,'tresorerie/charges_recurrentes/'+id)); }
+
+function openChargeModal(id) {
+  _editingId = id;
+  const c = id?(_chargesData[id]||{}):{};
+  document.getElementById('chargesModalTitle').textContent = id?'Modifier':'Ajouter une charge';
+  document.getElementById('cmName').value = c.name||'';
+  document.getElementById('cmAmount').value = c.monthlyRef||'';
+  document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
+  document.getElementById('cmCategory').value = c.category||'autre';
+  document.getElementById('cmNote').value = c.note||'';
+  document.getElementById('chargesModal').classList.add('open');
+}
+function closeChargeModal() { document.getElementById('chargesModal').classList.remove('open'); _editingId=null; }
+async function saveCharge() {
+  const name = document.getElementById('cmName').value.trim();
+  const amount = parseFloat(document.getElementById('cmAmount').value);
+  if (!name||isNaN(amount)) { alert('Nom et montant requis'); return; }
+  const id = _editingId||('manual_'+Date.now());
+  await set(ref(db,'tresorerie/charges_recurrentes/'+id),{
+    name, monthlyRef:amount,
+    periodicity:document.getElementById('cmPeriod').value,
+    category:document.getElementById('cmCategory').value,
+    note:document.getElementById('cmNote').value.trim(),
+    status:'confirmed', source:_editingId?(_chargesData[_editingId]?.source||'manual'):'manual',
+    updatedAt:new Date().toISOString()
+  });
+  closeChargeModal();
+}
+
+async function syncChargesFromPennylane() {
+  const btn = document.querySelector('.btn-sync-charges');
+  btn.textContent='\u23f3 Analyse\u2026'; btn.disabled=true;
+  try {
+    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth()-6);
+    const cutStr = cutoff.toISOString().split('T')[0];
+    let all=[], cursor=null, iter=0;
+    const tok = await auth.currentUser.getIdToken();
+    while(iter<30){
+      let url=PROXY+'?endpoint=supplier_invoices&limit=100';
+      if(cursor) url+='&cursor='+encodeURIComponent(cursor);
+      const d=await fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
+      all=all.concat((d.items||[]).filter(i=>i.date>=cutStr));
+      iter++;
+      if(!d.has_more||!d.next_cursor||(d.items||[]).slice(-1)[0]?.date<cutStr) break;
+      cursor=d.next_cursor;
+    }
+    const extr=l=>{const m=l?.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1]:(l||'?').substring(0,30);};
+    const byS={};
+    for(const i of all){const n=extr(i.label);if(!byS[n])byS[n]=[];byS[n].push({date:i.date,amount:parseFloat(i.amount)});}
+    let count=0;
+    for(const [name,items] of Object.entries(byS)){
+      const months=[...new Set(items.map(i=>i.date.substring(0,7)))];
+      if(months.length<2) continue;
+      if(Object.values(_chargesData).some(c=>c.name===name)) continue;
+      const tots={};for(const i of items){const m=i.date.substring(0,7);tots[m]=(tots[m]||0)+i.amount;}
+      const avg=Object.values(tots).reduce((a,b)=>a+b,0)/Object.values(tots).length;
+      const nid='auto_'+name.replace(/[^a-zA-Z0-9]/g,'_').toLowerCase().substring(0,20)+'_'+Date.now();
+      await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{name,monthlyRef:parseFloat(avg.toFixed(2)),periodicity:'mensuel',category:'autre',note:months.length+' mois',status:'pending',source:'auto',monthsDetected:months.length,updatedAt:new Date().toISOString()});
+      count++;
+    }
+    btn.textContent='\u2713 '+count+' nouvelle(s)';
+    setTimeout(()=>{btn.textContent='\u21bb D\u00e9tecter';btn.disabled=false;},3000);
+  } catch(e){btn.textContent='\u2717 Erreur';btn.disabled=false;console.error(e);}
+}
+
+function _esc(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+document.getElementById('chargesModal').addEventListener('click',e=>{if(e.target===document.getElementById('chargesModal'))closeChargeModal();});
+
 </script>
 </body>
 </html>

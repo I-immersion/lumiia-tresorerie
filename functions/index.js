@@ -4,11 +4,11 @@ const admin = require('firebase-admin');
 
 admin.initializeApp();
 
-function pennylaneGet(token, endpoint) {
+function pennylaneGet(token, path) {
   return new Promise((resolve, reject) => {
     const req = https.request({
       hostname: 'app.pennylane.com',
-      path: `/api/external/v2/${endpoint}`,
+      path: `/api/external/v2/${path}`,
       method: 'GET',
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -54,15 +54,18 @@ exports.pennylane = functions
     const pennylaneToken = process.env.PENNYLANE_TOKEN;
     if (!pennylaneToken) { res.status(500).json({ error: 'Token Pennylane manquant' }); return; }
 
-    const pathSegment = req.path.replace(/^\//, '');
-    const endpoint = pathSegment || req.query.endpoint;
+    // Utiliser la query string brute pour préserver les filtres JSON complexes
+    const rawQuery = req.url.includes('?') ? req.url.split('?')[1] : '';
+    const params = new URLSearchParams(rawQuery);
+
+    const endpoint = params.get('endpoint');
     if (!endpoint || !ALLOWED.some(e => endpoint.startsWith(e))) {
       res.status(400).json({ error: 'Endpoint non autoris\u00e9' }); return;
     }
 
-    const params = new URLSearchParams(req.query);
     params.delete('endpoint');
-    const path = params.toString() ? `${endpoint}?${params}` : endpoint;
+    const queryStr = params.toString();
+    const path = queryStr ? `${endpoint}?${queryStr}` : endpoint;
 
     try {
       const result = await pennylaneGet(pennylaneToken, path);
