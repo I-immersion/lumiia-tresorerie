@@ -54,15 +54,17 @@ exports.pennylane = functions
     const pennylaneToken = process.env.PENNYLANE_TOKEN;
     if (!pennylaneToken) { res.status(500).json({ error: 'Token Pennylane manquant' }); return; }
 
-    // Utiliser la query string brute pour préserver les filtres JSON complexes
+    // Supporter les deux styles : /bank_accounts ET ?endpoint=bank_accounts
     const rawQuery = req.url.includes('?') ? req.url.split('?')[1] : '';
     const params = new URLSearchParams(rawQuery);
+    const pathSegment = req.path.replace(/^\//, '');
+    const endpoint = pathSegment || params.get('endpoint');
 
-    const endpoint = params.get('endpoint');
     if (!endpoint || !ALLOWED.some(e => endpoint.startsWith(e))) {
       res.status(400).json({ error: 'Endpoint non autoris\u00e9' }); return;
     }
 
+    // Reconstruire la query sans le param 'endpoint'
     params.delete('endpoint');
     const queryStr = params.toString();
     const path = queryStr ? `${endpoint}?${queryStr}` : endpoint;
