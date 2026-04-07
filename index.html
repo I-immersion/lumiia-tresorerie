@@ -214,7 +214,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.7</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.8</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -230,7 +230,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.7</div>
+      <div class="header-version">v2.8</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -377,18 +377,9 @@
     <div class="modal-field"><label>P&eacute;riodicit&eacute;</label>
       <select id="cmPeriod"><option value="mensuel">Mensuel</option><option value="trimestriel">Trimestriel</option><option value="annuel">Annuel</option></select>
     </div>
-    <div class="modal-field"><label>Cat&eacute;gorie</label>
+    <div class="modal-field"><label>Cat&eacute;gorie Pennylane</label>
       <select id="cmCategory">
-        <option value="loyer">&#127968; Loyer</option>
-        <option value="energie">&#9889; Energie</option>
-        <option value="assurance">&#128737; Assurance</option>
-        <option value="credit">&#127974; Cr&eacute;dit / pr&ecirc;t</option>
-        <option value="prestataire_bar">&#127867; Prestataire bar</option>
-        <option value="prestataire">&#128119; Prestataire autre</option>
-        <option value="travaux">&#128296; Travaux / investissement</option>
-        <option value="abonnement">&#128257; Abonnement</option>
-        <option value="fournitures">&#128722; Fournitures</option>
-        <option value="autre">&#128204; Autre</option>
+        <option value="">Chargement...</option>
       </select>
     </div>
     <div class="modal-field"><label>Note (optionnel)</label><input type="text" id="cmNote" placeholder="Ex : Contrat no..." /></div>
@@ -866,7 +857,7 @@ const loginBtn = document.getElementById('loginBtn');
 const loginError = document.getElementById('loginError');
 
 onAuthStateChanged(auth, user => {
-  if(user){ loginScreen.style.display='none'; appDiv.style.display='block'; load(); initChargesModule(); }
+  if(user){ loginScreen.style.display='none'; appDiv.style.display='block'; load(); initChargesModule(); loadPLCategories(); }
   else{ loginScreen.style.display='flex'; appDiv.style.display='none'; }
 });
 loginBtn.addEventListener('click', async () => {
@@ -978,9 +969,10 @@ function cRow(c, status) {
   const btns = status==='pending'
     ? '<button class="cab cab-confirm" onclick="window._confirmCharge(\'' + c.id + '\')">&#10003; R\u00e9current</button><button class="cab cab-reject" onclick="window._rejectCharge(\'' + c.id + '\')">Ponctuel</button><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>'
     : '<button class="cab cab-modify" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button><button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')">Supprimer</button>';
-  const catColor = CCAT_COLOR[c.category] || '#6b7280';
-  const catLabel = CCAT_LABEL[c.category] || (c.category||'autre');
-  const catBadge = '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+catColor+'22;color:'+catColor+';border:1px solid '+catColor+'44;margin-right:6px">'+catLabel+'</span>';
+  const catLabel = c.plCategoryLabel || c.category || 'Sans cat\u00e9gorie';
+  const catBadge = catLabel !== 'Sans cat\u00e9gorie'
+    ? '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3);margin-right:6px">'+catLabel+'</span>'
+    : '';
   const varBadge = c.montantVariable ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">\u007e variable</span>' : '';
   return '<div class="charge-row '+status+'"><div class="charge-icon">'+icon+'</div><div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.note?_ce(c.note):'')+det+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0"><div>'+catBadge+'</div><div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>'+per+eq+'</small></div></div><div class="charge-action-btns">'+btns+'</div></div>';
 }
@@ -1000,7 +992,7 @@ window._openCharge = id => {
   document.getElementById('cmName').value = c.name||'';
   document.getElementById('cmAmount').value = c.monthlyRef||'';
   document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
-  document.getElementById('cmCategory').value = c.category||'autre';
+  _fillCatSelect(document.getElementById('cmCategory'), c.plCategoryId||null);
   document.getElementById('cmNote').value = c.note||'';
   document.getElementById('cmVariable').checked = !!c.montantVariable;
   document.getElementById('chargesModal').classList.add('open');
@@ -1010,16 +1002,23 @@ window._saveCharge = async () => {
   const name = document.getElementById('cmName').value.trim();
   const amount = parseFloat(document.getElementById('cmAmount').value);
   if(!name||isNaN(amount)){alert('Nom et montant requis');return;}
+  const catSel = document.getElementById('cmCategory');
+  const plCatId = catSel.value ? parseInt(catSel.value) : null;
+  const plCatLabel = catSel.value ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
   const id = _eid||('manual_'+Date.now());
   await set(ref(db,'tresorerie/charges_recurrentes/'+id),{
     name, monthlyRef:amount,
     periodicity:document.getElementById('cmPeriod').value,
     category:document.getElementById('cmCategory').value,
     note:document.getElementById('cmNote').value.trim(),
+    plCategoryId: plCatId,
+    plCategoryLabel: plCatLabel,
     status:'confirmed', source:_eid?(_cd[_eid]?.source||'manual'):'manual',
     montantVariable: document.getElementById('cmVariable').checked,
     updatedAt:new Date().toISOString()
   });
+  // Écriture asynchrone vers Pennylane (non bloquante)
+  if(plCatId) _writeCatToPennylane(name, plCatId);
   window._closeCharge();
 };
 window._syncCharges = async () => {
@@ -1056,6 +1055,64 @@ window._syncCharges = async () => {
     setTimeout(()=>{btn.textContent='\u21bb D\u00e9tecter';btn.disabled=false;},3000);
   } catch(e){btn.textContent='\u2717 Erreur';btn.disabled=false;console.error(e);}
 };
+// ── Catégories Pennylane ──
+let _plCats = []; // [{id, label}]
+
+async function loadPLCategories() {
+  try {
+    const tok = await auth.currentUser.getIdToken();
+    const d = await fetch(PROXY+'/categories?limit=100', {headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
+    _plCats = (d.items||[])
+      .filter(c => c.direction === 'cash_out')
+      .sort((a,b) => a.label.localeCompare(b.label));
+    // Stocker dans Firebase pour lecture offline
+    set(ref(db,'tresorerie/pl_categories'), Object.fromEntries(_plCats.map(c=>['c'+c.id,{id:c.id,label:c.label}])));
+    _fillCatSelect(document.getElementById('cmCategory'), null);
+  } catch(e) { console.warn('cats:', e); }
+}
+
+function _fillCatSelect(sel, currentId) {
+  if (!sel) return;
+  sel.innerHTML = '<option value="">-- Sans cat\u00e9gorie --</option>'
+    + _plCats.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
+}
+
+// Ecrire la catégorie vers Pennylane pour toutes les factures du fournisseur
+async function _writeCatToPennylane(chargeName, catId) {
+  if (!catId) return;
+  try {
+    const tok = await auth.currentUser.getIdToken();
+    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth()-6);
+    const cutStr = cutoff.toISOString().split('T')[0];
+    // Récupérer les factures de ce fournisseur
+    let all=[], cursor=null, iter=0;
+    while(iter<10){
+      let url=PROXY+'?endpoint=supplier_invoices&limit=100';
+      if(cursor) url+='&cursor='+encodeURIComponent(cursor);
+      const d=await fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
+      const items=(d.items||[]).filter(i=>i.date>=cutStr);
+      // Filtrer par nom fournisseur
+      const extract=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1]:(l||'').substring(0,30);};
+      all=all.concat(items.filter(i=>extract(i.label)===chargeName));
+      iter++;
+      if(!d.has_more||!d.next_cursor) break;
+      cursor=d.next_cursor;
+    }
+    // Écrire la catégorie sur chaque facture
+    const body = [{id: parseInt(catId), weight: '1'}];
+    let count = 0;
+    for(const inv of all) {
+      await fetch(`${PROXY}/supplier_invoices/${inv.id}/categories`, {
+        method: 'PUT',
+        headers: {'Authorization':'Bearer '+tok, 'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+      count++;
+    }
+    console.log('Catégorie écrite sur', count, 'factures Pennylane');
+  } catch(e) { console.warn('writeCat error:', e); }
+}
+
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 document.getElementById('chargesModal').addEventListener('click',e=>{if(e.target===document.getElementById('chargesModal'))window._closeCharge();});
 
