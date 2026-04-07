@@ -165,12 +165,11 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v2.9 == */
+/* == Layout charge row v2.12 == */
 .charge-row { align-items: center; }
 .charge-info { min-width: 200px; }
 .charge-name { font-size: 13.5px; }
 .charge-meta { font-size: 11.5px; }
-.charge-center { flex: 1; display: flex; justify-content: center; align-items: center; }
 .charge-right  { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
 .charge-amount { font-size: 14px; text-align: right; min-width: 80px; }
 .charge-amount small { font-size: 11px; }
@@ -209,7 +208,7 @@
 .cq-btn.delete{border-color:var(--muted2);}.cq-btn.delete:hover{background:rgba(107,114,128,0.15);}
 #chargesModal{display:none;position:fixed;inset:0;background:rgba(0,0,0,.6);z-index:1000;align-items:center;justify-content:center;}
 #chargesModal.open{display:flex;}
-.charges-modal-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:400px;margin:16px;}
+.charges-modal-box{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:28px;width:100%;max-width:400px;margin:16px;max-height:90vh;overflow-y:auto;}
 .modal-title{font-size:15px;font-weight:600;margin-bottom:22px;}
 .modal-field{margin-bottom:14px;}
 .modal-field label{display:block;font-size:11px;color:var(--muted2);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px;}
@@ -230,7 +229,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.9</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.12</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +245,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.9</div>
+      <div class="header-version">v2.12</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -389,21 +388,23 @@
 <div id="chargesModal">
   <div class="charges-modal-box">
     <div class="modal-title" id="chargesModalTitle">Qualifier une charge</div>
-    <div class="modal-field"><label>Nom du fournisseur</label><input type="text" id="cmName" placeholder="Ex : Loyer, ENGIE, AXA..." /></div>
-    <div class="modal-field"><label>Montant (&euro;)</label><input type="number" id="cmAmount" placeholder="0.00" step="0.01" /></div>
+    <div class="modal-field" id="cmNameField"><label id="cmNameLabel">Nom du fournisseur</label><input type="text" id="cmName" placeholder="Ex : Loyer, ENGIE, AXA..." /></div>
+    <div class="modal-field"><label>Montant de référence &mdash; pour la projection (&euro;)</label><input type="number" id="cmAmount" placeholder="0.00" step="0.01" /></div>
     <div class="modal-field"><label>P&eacute;riodicit&eacute;</label>
-      <select id="cmPeriod"><option value="mensuel">Mensuel</option><option value="trimestriel">Trimestriel</option><option value="annuel">Annuel</option></select>
+      <select id="cmPeriod">
+        <option value="mensuel">Tous les mois</option>
+        <option value="irregulier">Pas tous les mois (fréquence variable)</option>
+        <option value="trimestriel">Tous les trimestres</option>
+        <option value="annuel">Une fois par an</option>
+      </select>
     </div>
     <div class="modal-field"><label>Cat&eacute;gorie Pennylane</label>
       <select id="cmCategory">
         <option value="">Chargement...</option>
       </select>
     </div>
-    <div class="modal-field"><label>Note (optionnel)</label><input type="text" id="cmNote" placeholder="Ex : Contrat no..." /></div>
-    <div class="modal-field" style="display:flex;align-items:center;gap:10px">
-      <input type="checkbox" id="cmVariable" style="width:16px;height:16px;accent-color:var(--warn);flex-shrink:0" />
-      <label style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--text)">Montant variable d&#39;un mois à l&#39;autre</label>
-    </div>
+    <div class="modal-field"><label>Note interne <span style="font-weight:400;text-transform:none;letter-spacing:0">(non visible dans Pennylane)</span></label><input type="text" id="cmNote" placeholder="Ex : Contrat no..." /></div>
+    <input type="hidden" id="cmVariable" value="false" />
     <input type="hidden" id="cmId" />
     <div class="modal-btns">
       <button class="modal-btn-cancel" onclick="window._closeCharge()">Annuler</button>
@@ -971,14 +972,20 @@ function renderCharges() {
   document.getElementById('chargesConfirmedList').innerHTML = conf.length
     ? conf.map(c=>cRow(c,'confirmed')).join('')
     : '<div class="empty">Aucune charge confirm\u00e9e</div>';
-  const total = conf.reduce((s,c)=>s+(parseFloat(c.monthlyRef)||0),0);
+  const monthlyVal = c => {
+    const r = parseFloat(c.monthlyRef)||0;
+    if (c.periodicity==='trimestriel') return r/3;
+    if (c.periodicity==='annuel') return r/12;
+    return r; // mensuel et irregulier : montant tel quel (c'est déjà une moyenne)
+  };
+  const total = conf.reduce((s,c)=>s+monthlyVal(c),0);
   document.getElementById('chargesTotalBadge').textContent = Math.round(total)+' €/mois';
   document.getElementById('chargesSummaryTotal').textContent = total.toFixed(2)+' €';
   // Breakdown par nature
   const breakdown = {fixe:0, variable:0, invest:0, autre:0};
   conf.forEach(c => {
     const n = _catNature(c.plCategoryLabel || c.category || '');
-    breakdown[n] = (breakdown[n]||0) + (parseFloat(c.monthlyRef)||0);
+    breakdown[n] = (breakdown[n]||0) + monthlyVal(c);
   });
   const bEl = document.getElementById('chargesBreakdown');
   if (bEl) {
@@ -997,7 +1004,8 @@ function renderCharges() {
 function cRow(c, status) {
   const icon = CEMOJI[c.category] || '&#128204;';
   const r = parseFloat(c.monthlyRef||0);
-  const per = c.periodicity==='mensuel'?'/mois':c.periodicity==='trimestriel'?'/trim.':'/an';
+  const PER_LABEL = {mensuel:'/mois', irregulier:'/mois~', trimestriel:'/trim.', annuel:'/an'};
+  const per = PER_LABEL[c.periodicity] || '/mois';
   const eq = c.periodicity==='trimestriel'?' ('+(r/3).toFixed(2)+'\u00a0\u20ac/mois)':c.periodicity==='annuel'?' ('+(r/12).toFixed(2)+'\u00a0\u20ac/mois)':'';
   const msrc = c.source==='manual'?'<span style="font-size:10px;color:var(--info);margin-left:5px">manuel</span>':'';
   const det = c.monthsDetected?'<span style="font-size:10px;color:var(--muted2);margin-left:4px">'+c.monthsDetected+'M</span>':'';
@@ -1008,12 +1016,17 @@ function cRow(c, status) {
   const catBadge = catLabel
     ? '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)">'+catLabel+'</span>'
     : '';
-  const varBadge = c.montantVariable ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">\u007e variable</span>' : '';
+  const varBadge = (c.montantVariable || c.periodicity==='irregulier') ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">~ variable</span>' : '';
   return '<div class="charge-row '+status+'">'+
     '<div class="charge-icon">'+icon+'</div>'+
     '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.note?_ce(c.note):'')+det+'</div></div>'+
-    '<div class="charge-center">'+catBadge+'</div>'+
-    '<div class="charge-right"><div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>'+per+eq+'</small></div><div class="charge-action-btns">'+btns+'</div></div>'+
+    '<div class="charge-right">'+
+      '<div style="display:flex;align-items:center;gap:8px;flex-direction:row">'+
+        '<div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>'+per+eq+'</small></div>'+
+        catBadge+
+      '</div>'+
+      '<div class="charge-action-btns">'+btns+'</div>'+
+    '</div>'+
     '</div>';
 }
 
@@ -1028,13 +1041,23 @@ window._rejectCharge  = async id => { await update(ref(db,'tresorerie/charges_re
 window._deleteCharge  = async id => { await remove(ref(db,'tresorerie/charges_recurrentes/'+id)); };
 window._openCharge = id => {
   _eid = id; const c = id?(_cd[id]||{}):{};
-  document.getElementById('chargesModalTitle').textContent = id?'Modifier':'Ajouter une charge';
+  document.getElementById('chargesModalTitle').textContent = id?'Modifier la charge':'Ajouter une charge';
+  const isAuto = c.source === 'auto';
+  const nameInput = document.getElementById('cmName');
+  const nameLabel = document.getElementById('cmNameLabel');
+  if (isAuto) {
+    nameInput.style.opacity = '0.5'; nameInput.readOnly = true;
+    nameLabel.textContent = 'Nom (depuis Pennylane — non modifiable)';
+  } else {
+    nameInput.style.opacity = '1'; nameInput.readOnly = false;
+    nameLabel.textContent = 'Nom du fournisseur';
+  }
   document.getElementById('cmName').value = c.name||'';
   document.getElementById('cmAmount').value = c.monthlyRef||'';
   document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
   _fillCatSelect(document.getElementById('cmCategory'), c.plCategoryId||null);
   document.getElementById('cmNote').value = c.note||'';
-  document.getElementById('cmVariable').checked = !!c.montantVariable;
+  // variable géré automatiquement selon périodicité
   document.getElementById('chargesModal').classList.add('open');
 };
 window._closeCharge = () => { document.getElementById('chargesModal').classList.remove('open'); _eid=null; };
@@ -1054,7 +1077,7 @@ window._saveCharge = async () => {
     plCategoryId: plCatId,
     plCategoryLabel: plCatLabel,
     status:'confirmed', source:_eid?(_cd[_eid]?.source||'manual'):'manual',
-    montantVariable: document.getElementById('cmVariable').checked,
+    montantVariable: ['irregulier','variable'].includes(document.getElementById('cmPeriod').value),
     updatedAt:new Date().toISOString()
   });
   // Écriture asynchrone vers Pennylane (non bloquante)
