@@ -1,3 +1,4 @@
+// pennylane proxy v4 - 2026-04-08 - token I43Vf
 const functions = require('firebase-functions');
 const https = require('https');
 const admin = require('firebase-admin');

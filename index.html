@@ -164,6 +164,22 @@
 .cab-delete{background:rgba(248,113,113,0.1);color:var(--danger);border:1px solid rgba(248,113,113,0.25);}
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
+
+/* == Layout charge row v2.9 == */
+.charge-row { align-items: center; }
+.charge-info { min-width: 200px; }
+.charge-name { font-size: 13.5px; }
+.charge-meta { font-size: 11.5px; }
+.charge-center { flex: 1; display: flex; justify-content: center; align-items: center; }
+.charge-right  { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
+.charge-amount { font-size: 14px; text-align: right; min-width: 80px; }
+.charge-amount small { font-size: 11px; }
+/* Totaux par nature */
+.charges-breakdown { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 14px; }
+.cbreak-item { flex: 1; min-width: 120px; background: var(--surface2); border: 1px solid var(--border); border-radius: 8px; padding: 10px 12px; }
+.cbreak-label { font-size: 10.5px; color: var(--muted2); text-transform: uppercase; letter-spacing: .05em; margin-bottom: 4px; }
+.cbreak-amount { font-size: 16px; font-weight: 700; font-family: 'DM Serif Display', serif; }
+
 /* == Charges recurrentes == */
 #section-charges{margin-top:20px;}
 .charges-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
@@ -214,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.8</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.9</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -230,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.8</div>
+      <div class="header-version">v2.9</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -349,7 +365,7 @@
       <div class="charges-header">
         <div class="charges-title">&#128200; Charges r&eacute;currentes<span id="chargesTotalBadge" class="charges-total-badge">0 &euro;/mois</span></div>
         <div style="display:flex;gap:8px">
-          <button class="btn-sync-charges" onclick="window._syncCharges()">&#8635; D&eacute;tecter</button>
+          <button class="btn-sync-charges" onclick="window._syncCharges()" title="Analyse 6 mois de factures Pennylane pour détecter de nouveaux fournisseurs récurrents">&#8635; Scanner PL</button>
           <button class="btn-add-charge" onclick="window._openCharge(null)">+ Ajouter</button>
         </div>
       </div>
@@ -361,8 +377,9 @@
         <div class="charges-group-label">&#10003; Confirm&eacute;es <span id="chargesConfirmedCount">0</span></div>
         <div id="chargesConfirmedList"></div>
       </div>
+      <div id="chargesBreakdown" class="charges-breakdown"></div>
       <div class="charges-summary">
-        <div class="charges-summary-label">Total charges mensuelles confirm&eacute;es</div>
+        <div class="charges-summary-label">Total mensuel estimé (charges confirmées)</div>
         <div id="chargesSummaryTotal" class="charges-summary-amount">&mdash;&nbsp;&euro;</div>
       </div>
     </div>
@@ -957,6 +974,24 @@ function renderCharges() {
   const total = conf.reduce((s,c)=>s+(parseFloat(c.monthlyRef)||0),0);
   document.getElementById('chargesTotalBadge').textContent = Math.round(total)+' €/mois';
   document.getElementById('chargesSummaryTotal').textContent = total.toFixed(2)+' €';
+  // Breakdown par nature
+  const breakdown = {fixe:0, variable:0, invest:0, autre:0};
+  conf.forEach(c => {
+    const n = _catNature(c.plCategoryLabel || c.category || '');
+    breakdown[n] = (breakdown[n]||0) + (parseFloat(c.monthlyRef)||0);
+  });
+  const bEl = document.getElementById('chargesBreakdown');
+  if (bEl) {
+    const items = [
+      {label:'Charges fixes', amount: breakdown.fixe, color:'#818cf8'},
+      {label:'Charges variables', amount: breakdown.variable, color:'#4ade80'},
+      {label:'Travaux (temp.)', amount: breakdown.invest, color:'#fb923c'},
+    ].filter(i => i.amount > 0);
+    bEl.innerHTML = items.map(i =>
+      '<div class="cbreak-item"><div class="cbreak-label">'+i.label+'</div>'+
+      '<div class="cbreak-amount" style="color:'+i.color+'">'+Math.round(i.amount)+' €<span style="font-size:10px;font-weight:400;color:var(--muted2)">/mois</span></div></div>'
+    ).join('');
+  }
 }
 
 function cRow(c, status) {
@@ -969,12 +1004,17 @@ function cRow(c, status) {
   const btns = status==='pending'
     ? '<button class="cab cab-confirm" onclick="window._confirmCharge(\'' + c.id + '\')">&#10003; R\u00e9current</button><button class="cab cab-reject" onclick="window._rejectCharge(\'' + c.id + '\')">Ponctuel</button><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>'
     : '<button class="cab cab-modify" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button><button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')">Supprimer</button>';
-  const catLabel = c.plCategoryLabel || c.category || 'Sans cat\u00e9gorie';
-  const catBadge = catLabel !== 'Sans cat\u00e9gorie'
-    ? '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3);margin-right:6px">'+catLabel+'</span>'
+  const catLabel = c.plCategoryLabel || c.category || '';
+  const catBadge = catLabel
+    ? '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)">'+catLabel+'</span>'
     : '';
   const varBadge = c.montantVariable ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">\u007e variable</span>' : '';
-  return '<div class="charge-row '+status+'"><div class="charge-icon">'+icon+'</div><div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.note?_ce(c.note):'')+det+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0"><div>'+catBadge+'</div><div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>'+per+eq+'</small></div></div><div class="charge-action-btns">'+btns+'</div></div>';
+  return '<div class="charge-row '+status+'">'+
+    '<div class="charge-icon">'+icon+'</div>'+
+    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.note?_ce(c.note):'')+det+'</div></div>'+
+    '<div class="charge-center">'+catBadge+'</div>'+
+    '<div class="charge-right"><div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>'+per+eq+'</small></div><div class="charge-action-btns">'+btns+'</div></div>'+
+    '</div>';
 }
 
 window._setTab = (tab) => {
@@ -1111,6 +1151,16 @@ async function _writeCatToPennylane(chargeName, catId) {
     }
     console.log('Catégorie écrite sur', count, 'factures Pennylane');
   } catch(e) { console.warn('writeCat error:', e); }
+}
+
+// Mapping catégorie PL → nature
+function _catNature(label) {
+  if (!label) return 'autre';
+  const l = label.toLowerCase();
+  if (l.includes('invest') || l.includes('travaux') || l.includes('équipement')) return 'invest';
+  if (l.includes('loyer') || l.includes('assurance') || l.includes('logiciel') || l.includes('abonnement') || l.includes('téléphone') || l.includes('licence') || l.includes('frais bancaire') || l.includes('honor')) return 'fixe';
+  if (l.includes('achat') || l.includes('sous-trait') || l.includes('salaire') || l.includes('prestataire') || l.includes('alimentat') || l.includes('snack')) return 'variable';
+  return 'fixe';
 }
 
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
