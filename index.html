@@ -214,7 +214,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.6</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.7</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -230,7 +230,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.6</div>
+      <div class="header-version">v2.7</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -379,13 +379,23 @@
     </div>
     <div class="modal-field"><label>Cat&eacute;gorie</label>
       <select id="cmCategory">
-        <option value="loyer">Loyer</option><option value="energie">Energie</option>
-        <option value="assurance">Assurance</option><option value="credit">Credit / pret</option>
-        <option value="prestataire">Prestataire</option><option value="abonnement">Abonnement</option>
-        <option value="fournitures">Fournitures</option><option value="autre">Autre</option>
+        <option value="loyer">&#127968; Loyer</option>
+        <option value="energie">&#9889; Energie</option>
+        <option value="assurance">&#128737; Assurance</option>
+        <option value="credit">&#127974; Cr&eacute;dit / pr&ecirc;t</option>
+        <option value="prestataire_bar">&#127867; Prestataire bar</option>
+        <option value="prestataire">&#128119; Prestataire autre</option>
+        <option value="travaux">&#128296; Travaux / investissement</option>
+        <option value="abonnement">&#128257; Abonnement</option>
+        <option value="fournitures">&#128722; Fournitures</option>
+        <option value="autre">&#128204; Autre</option>
       </select>
     </div>
     <div class="modal-field"><label>Note (optionnel)</label><input type="text" id="cmNote" placeholder="Ex : Contrat no..." /></div>
+    <div class="modal-field" style="display:flex;align-items:center;gap:10px">
+      <input type="checkbox" id="cmVariable" style="width:16px;height:16px;accent-color:var(--warn);flex-shrink:0" />
+      <label style="text-transform:none;letter-spacing:0;font-size:13px;color:var(--text)">Montant variable d&#39;un mois à l&#39;autre</label>
+    </div>
     <input type="hidden" id="cmId" />
     <div class="modal-btns">
       <button class="modal-btn-cancel" onclick="window._closeCharge()">Annuler</button>
@@ -912,7 +922,18 @@ async function load() {
 // == CHARGES RECURRENTES v1.0 ==
 const CEMOJI = {
   loyer:'&#127968;', energie:'&#9889;', assurance:'&#128737;', credit:'&#127974;',
-  prestataire:'&#128119;', abonnement:'&#128257;', fournitures:'&#128722;', autre:'&#128204;'
+  prestataire:'&#128119;', prestataire_bar:'&#127867;', travaux:'&#128296;',
+  abonnement:'&#128257;', fournitures:'&#128722;', autre:'&#128204;'
+};
+const CCAT_COLOR = {
+  loyer:'#a78bfa', energie:'#fbbf24', assurance:'#60a5fa', credit:'#f87171',
+  prestataire:'#94a3b8', prestataire_bar:'#4ade80', travaux:'#fb923c',
+  abonnement:'#818cf8', fournitures:'#34d399', autre:'#6b7280'
+};
+const CCAT_LABEL = {
+  loyer:'Loyer', energie:'\u00c9nergie', assurance:'Assurance', credit:'Cr\u00e9dit',
+  prestataire:'Prestataire', prestataire_bar:'Prestataire bar', travaux:'Travaux',
+  abonnement:'Abonnement', fournitures:'Fournitures', autre:'Autre'
 };
 let _cd = {}, _cv = false, _eid = null;
 
@@ -957,7 +978,11 @@ function cRow(c, status) {
   const btns = status==='pending'
     ? '<button class="cab cab-confirm" onclick="window._confirmCharge(\'' + c.id + '\')">&#10003; R\u00e9current</button><button class="cab cab-reject" onclick="window._rejectCharge(\'' + c.id + '\')">Ponctuel</button><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>'
     : '<button class="cab cab-modify" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button><button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')">Supprimer</button>';
-  return '<div class="charge-row '+status+'"><div class="charge-icon">'+icon+'</div><div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+'</div><div class="charge-meta">'+(c.category||'autre')+(c.note?' \u00b7 '+_ce(c.note):'')+det+'</div></div><div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>'+per+eq+'</small></div><div class="charge-action-btns">'+btns+'</div></div>';
+  const catColor = CCAT_COLOR[c.category] || '#6b7280';
+  const catLabel = CCAT_LABEL[c.category] || (c.category||'autre');
+  const catBadge = '<span style="font-size:10px;font-weight:700;padding:2px 7px;border-radius:4px;background:'+catColor+'22;color:'+catColor+';border:1px solid '+catColor+'44;margin-right:6px">'+catLabel+'</span>';
+  const varBadge = c.montantVariable ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">\u007e variable</span>' : '';
+  return '<div class="charge-row '+status+'"><div class="charge-icon">'+icon+'</div><div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.note?_ce(c.note):'')+det+'</div></div><div style="display:flex;flex-direction:column;align-items:flex-end;gap:4px;flex-shrink:0"><div>'+catBadge+'</div><div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>'+per+eq+'</small></div></div><div class="charge-action-btns">'+btns+'</div></div>';
 }
 
 window._setTab = (tab) => {
@@ -967,8 +992,8 @@ window._setTab = (tab) => {
   document.getElementById('tabCharges').classList.toggle('active',   tab==='charges');
 };
 window._confirmCharge = async id => { await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'confirmed'}); };
-window._rejectCharge  = async id => { if(confirm('Marquer comme ponctuel ?')) await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'rejected'}); };
-window._deleteCharge  = async id => { if(confirm('Supprimer ?')) await remove(ref(db,'tresorerie/charges_recurrentes/'+id)); };
+window._rejectCharge  = async id => { await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'rejected'}); };
+window._deleteCharge  = async id => { await remove(ref(db,'tresorerie/charges_recurrentes/'+id)); };
 window._openCharge = id => {
   _eid = id; const c = id?(_cd[id]||{}):{};
   document.getElementById('chargesModalTitle').textContent = id?'Modifier':'Ajouter une charge';
@@ -977,6 +1002,7 @@ window._openCharge = id => {
   document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
   document.getElementById('cmCategory').value = c.category||'autre';
   document.getElementById('cmNote').value = c.note||'';
+  document.getElementById('cmVariable').checked = !!c.montantVariable;
   document.getElementById('chargesModal').classList.add('open');
 };
 window._closeCharge = () => { document.getElementById('chargesModal').classList.remove('open'); _eid=null; };
@@ -991,6 +1017,7 @@ window._saveCharge = async () => {
     category:document.getElementById('cmCategory').value,
     note:document.getElementById('cmNote').value.trim(),
     status:'confirmed', source:_eid?(_cd[_eid]?.source||'manual'):'manual',
+    montantVariable: document.getElementById('cmVariable').checked,
     updatedAt:new Date().toISOString()
   });
   window._closeCharge();
