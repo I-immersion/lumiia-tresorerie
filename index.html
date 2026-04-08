@@ -1025,7 +1025,7 @@ function cRow(c, status) {
   const varBadge = (c.montantVariable || c.periodicity==='irregulier') ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">~ variable</span>' : '';
   return '<div class="charge-row '+status+'">'+
     '<div class="charge-icon">'+icon+'</div>'+
-    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.internalNote?_ce(c.internalNote):'')+(c.lastInvoiceDate?'<span style="font-size:10px;color:var(--muted2)"> · '+c.lastInvoiceDate+(c.lastInvoiceNumber?' · N°'+c.lastInvoiceNumber:'')+'</span>':'')+</div></div>'+
+    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.internalNote?_ce(c.internalNote):'')+(c.lastInvoiceDate?'<span style="font-size:10px;color:var(--muted2)"> · '+c.lastInvoiceDate+(c.lastInvoiceNumber?' · N°'+c.lastInvoiceNumber:'')+'</span>':'')+'</div></div>'+
     '<div class="charge-mid">'+
       '<div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>\u00a0'+per+eq+'</small></div>'+
       catBadge+
