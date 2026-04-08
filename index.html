@@ -977,7 +977,7 @@ function renderCharges() {
   conf.sort((a,b)=>b.monthlyRef-a.monthlyRef);
   pend.sort((a,b)=>b.monthlyRef-a.monthlyRef);
   document.getElementById('chargesPendingCount').textContent = pend.length;
-  document.getElementById('chargesConfirmedCount').textContent = conf.length;
+  const _cc=document.getElementById('chargesConfirmedCount'); if(_cc) _cc.textContent=conf.length;
   const badge = document.getElementById('chargesNavBadge');
   if(pend.length>0){ badge.textContent=pend.length; badge.style.display=''; }
   else badge.style.display='none';
