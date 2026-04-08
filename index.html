@@ -166,7 +166,7 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v2.17 == */
+/* == Layout charge row v2.18 == */
 .charge-row { display:flex; align-items:center; gap:12px; }
 .charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.17</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.18</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.17</div>
+      <div class="header-version">v2.18</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -363,7 +363,7 @@
   <div class="content" id="tabContentCharges" style="display:none">
     <div id="section-charges" class="card" style="display:block;margin-top:0">
       <div class="charges-header">
-        <div class="charges-title">&#128200; Charges r&eacute;currentes<span id="chargesTotalBadge" class="charges-total-badge">0 &euro;/mois</span></div>
+        <div class="charges-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">&#128200; Charges r&eacute;currentes<span id="chargesTotalBadge" class="charges-total-badge">0 &euro;/mois</span><span id="chargesBreakdown" style="display:flex;gap:6px;flex-wrap:wrap"></span></div>
         <div style="display:flex;gap:8px">
           <button class="btn-sync-charges" onclick="window._syncCharges()" title="Analyse 6 mois de factures Pennylane pour détecter de nouveaux fournisseurs récurrents">&#8635; Scanner PL</button>
           <button class="btn-add-charge" onclick="window._openCharge(null)">+ Ajouter</button>
@@ -377,11 +377,7 @@
         <div class="charges-group-label">&#10003; Confirm&eacute;es <span id="chargesConfirmedCount">0</span></div>
         <div id="chargesConfirmedList"></div>
       </div>
-      <div id="chargesBreakdown" class="charges-breakdown"></div>
-      <div class="charges-summary">
-        <div class="charges-summary-label">Total mensuel estimé (charges confirmées)</div>
-        <div id="chargesSummaryTotal" class="charges-summary-amount">&mdash;&nbsp;&euro;</div>
-      </div>
+      
     </div>
   </div>
 </div>
@@ -993,7 +989,7 @@ function renderCharges() {
   };
   const total = conf.reduce((s,c)=>s+monthlyVal(c),0);
   document.getElementById('chargesTotalBadge').textContent = Math.round(total)+' €/mois';
-  document.getElementById('chargesSummaryTotal').textContent = total.toFixed(2)+' €';
+
   // Breakdown par nature
   const breakdown = {fixe:0, variable:0, invest:0, autre:0};
   conf.forEach(c => {
@@ -1008,8 +1004,8 @@ function renderCharges() {
       {label:'Travaux (temp.)', amount: breakdown.invest, color:'#fb923c'},
     ].filter(i => i.amount > 0);
     bEl.innerHTML = items.map(i =>
-      '<div class="cbreak-item"><div class="cbreak-label">'+i.label+'</div>'+
-      '<div class="cbreak-amount" style="color:'+i.color+'">'+Math.round(i.amount)+' €<span style="font-size:10px;font-weight:400;color:var(--muted2)">/mois</span></div></div>'
+      '<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.05);color:'+i.color+';white-space:nowrap">'+
+      i.label+' '+Math.round(i.amount)+'€</span>'
     ).join('');
   }
 }
@@ -1051,27 +1047,23 @@ window._confirmCharge = async id => { await update(ref(db,'tresorerie/charges_re
 window._rejectCharge  = async id => { await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'rejected'}); };
 window._deleteCharge  = async id => { await remove(ref(db,'tresorerie/charges_recurrentes/'+id)); };
 window._openCharge = id => {
-  _eid = id; const c = id?(_cd[id]||{}):{};
-  document.getElementById('chargesModalTitle').textContent = id?'':'Ajouter une charge';
+  _eid = id; const c = id?(_cd[id]||{}):{}; 
+  document.getElementById('chargesModalTitle').textContent = id ? '' : 'Ajouter une charge';
   const isAuto = c.source === 'auto';
   const nameInput = document.getElementById('cmName');
   const amountInput = document.getElementById('cmAmount');
-  if (isAuto) {
-    nameInput.style.opacity='0.5'; nameInput.readOnly=true; nameLabel.textContent='';
-    amountInput.style.opacity='0.5'; amountInput.readOnly=true;
-  } else {
-    nameInput.style.opacity='1'; nameInput.readOnly=false; nameLabel.textContent='Fournisseur';
-    amountInput.style.opacity='1'; amountInput.readOnly=false;
-  }
+  nameInput.style.opacity = isAuto ? '0.45' : '1';
+  nameInput.readOnly = isAuto;
+  amountInput.style.opacity = isAuto ? '0.45' : '1';
+  amountInput.readOnly = isAuto;
   document.getElementById('cmName').value = c.name||'';
   document.getElementById('cmAmount').value = c.monthlyRef||'';
   document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
   _fillCatSelect(document.getElementById('cmCategory'), c.plCategoryId||null);
   document.getElementById('cmNote').value = c.internalNote||'';
   document.getElementById('cmComptable').value = c.plExternalRef||'';
-  // variable géré automatiquement selon périodicité
   document.getElementById('chargesModal').classList.add('open');
-};
+}
 window._closeCharge = () => { document.getElementById('chargesModal').classList.remove('open'); _eid=null; };
 window._saveCharge = async () => {
   const name = document.getElementById('cmName').value.trim();
@@ -1116,7 +1108,7 @@ window._syncCharges = async () => {
     }
     const extr=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1]:(l||'?').substring(0,30);};
     const byS={};
-    for(const i of all){const n=extr(i.label);if(!byS[n])byS[n]=[];byS[n].push({date:i.date,amount:parseFloat(i.amount)});}
+    for(const i of all){const n=extr(i.label);if(!byS[n])byS[n]=[];byS[n].push({date:i.date,amount:parseFloat(i.amount),num:i.invoice_number||''});}
     let count=0;
     for(const [name,items] of Object.entries(byS)){
       const months=[...new Set(items.map(i=>i.date.substring(0,7)))];
