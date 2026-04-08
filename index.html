@@ -166,7 +166,7 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v2.20 == */
+/* == Layout charge row v2.21 == */
 .charge-row { display:flex; align-items:center; gap:12px; }
 .charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.20</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.21</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.20</div>
+      <div class="header-version">v2.21</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1046,7 +1046,9 @@ function cRow(c, status) {
   const varBadge = (c.montantVariable || c.periodicity==='irregulier') ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">~ variable</span>' : '';
   return '<div class="charge-row '+status+'">'+
     '<div class="charge-icon">'+icon+'</div>'+
-    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.internalNote?_ce(c.internalNote):'')+(c.lastInvoiceDate?'<span style="font-size:10px;color:var(--muted2)"> · '+c.lastInvoiceDate+(c.lastInvoiceNumber?' · N°'+c.lastInvoiceNumber:'')+'</span>':'')+'</div></div>'+
+    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.internalNote?_ce(c.internalNote):'')+
+    (c.lastInvoiceDate?'<span style="font-size:10px;color:var(--muted2)"> · '+c.lastInvoiceDate+(c.lastInvoiceNumber?' · N°'+c.lastInvoiceNumber:'')+'</span>':
+    (c.monthsDetected?'<span style="font-size:10px;color:var(--muted2)"> · '+c.monthsDetected+' factures détectées</span>':''))+'</div></div>'+
     '<div class="charge-mid">'+
       '<div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>\u00a0'+per+eq+'</small></div>'+
       catBadge+
@@ -1080,7 +1082,11 @@ window._setTab = (tab) => {
   document.getElementById('tabDashboard').classList.toggle('active', tab==='dashboard');
   document.getElementById('tabCharges').classList.toggle('active',   tab==='charges');
 };
-window._confirmCharge = async id => { await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'confirmed'}); };
+window._confirmCharge = async id => {
+  const c = _cd[id]||{};
+  await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'confirmed'});
+  if(c.plCategoryId) _writeCatToPennylane(c.name, c.plCategoryId);
+};
 window._rejectCharge  = async id => { await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'ignored'}); };
 window._deleteCharge  = async id => { await remove(ref(db,'tresorerie/charges_recurrentes/'+id)); };
 window._openCharge = id => {
@@ -1149,7 +1155,7 @@ window._syncCharges = async () => {
     let count=0;
     for(const [name,items] of Object.entries(byS)){
       const months=[...new Set(items.map(i=>i.date.substring(0,7)))];
-      if(months.length<2||Object.values(_cd).some(c=>c.name===name)) continue;
+      if(months.length<2) continue;
       const tots={};for(const i of items){const m=i.date.substring(0,7);tots[m]=(tots[m]||0)+i.amount;}
       const avg=Object.values(tots).reduce((a,b)=>a+b,0)/Object.values(tots).length;
       const nid='auto_'+name.replace(/[^a-zA-Z0-9]/g,'_').toLowerCase().substring(0,20)+'_'+Date.now();
@@ -1254,38 +1260,32 @@ function _fillCatSelect(sel, currentId) {
 
 // Ecrire la catégorie vers Pennylane pour toutes les factures du fournisseur
 async function _writeCatToPennylane(chargeName, catId) {
-  if (!catId) return;
+  if (!catId || !chargeName) return;
   try {
     const tok = await auth.currentUser.getIdToken();
-    const cutoff = new Date(); cutoff.setMonth(cutoff.getMonth()-6);
-    const cutStr = cutoff.toISOString().split('T')[0];
-    // Récupérer les factures de ce fournisseur
+    // Récupérer TOUTES les factures du fournisseur (sans limite de date)
     let all=[], cursor=null, iter=0;
-    while(iter<10){
+    const extract=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1].trim():(l||'').substring(0,30);};
+    while(iter<20){
       let url=PROXY+'?endpoint=supplier_invoices&limit=100';
       if(cursor) url+='&cursor='+encodeURIComponent(cursor);
       const d=await fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
-      const items=(d.items||[]).filter(i=>i.date>=cutStr);
-      // Filtrer par nom fournisseur
-      const extract=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1]:(l||'').substring(0,30);};
-      all=all.concat(items.filter(i=>extract(i.label)===chargeName));
+      all=all.concat((d.items||[]).filter(i=>extract(i.label)===chargeName));
       iter++;
       if(!d.has_more||!d.next_cursor) break;
       cursor=d.next_cursor;
     }
-    // Écrire la catégorie sur chaque facture
+    // Écrire la catégorie sur chaque facture trouvée
     const body = [{id: parseInt(catId), weight: '1'}];
-    let count = 0;
     for(const inv of all) {
       await fetch(`${PROXY}/supplier_invoices/${inv.id}/categories`, {
         method: 'PUT',
         headers: {'Authorization':'Bearer '+tok, 'Content-Type':'application/json'},
         body: JSON.stringify(body)
       });
-      count++;
     }
-    console.log('Catégorie écrite sur', count, 'factures Pennylane');
-  } catch(e) { console.warn('writeCat error:', e); }
+    console.log('[PL] Cat\u00e9gorie \u00e9crite sur', all.length, 'factures de', chargeName);
+  } catch(e) { console.warn('[PL] writeCat error:', e); }
 }
 
 // Mapping catégorie PL → nature
