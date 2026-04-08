@@ -1241,8 +1241,6 @@ window._showIgnored = () => {};
 // Toggle flèche accordéon (conservé pour compatibilité)
 document.addEventListener('toggle', e => {
   if(e.target.id==='details-confirmed'){
-    const arrow=document.getElementById('conf-toggle-arrow');
-    if(arrow) arrow.style.transform=e.target.open?'rotate(90deg)':'rotate(0deg)';
   }
 }, true);
 
