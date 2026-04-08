@@ -166,7 +166,7 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v3.0.5 == */
+/* == Layout charge row v3.0.6 == */
 .charge-row { display:flex; align-items:center; gap:12px; }
 .charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.0.5</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.0.6</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.0.5</div>
+      <div class="header-version">v3.0.6</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -363,10 +363,10 @@
   <div id="tabContentCharges" style="display:none">
   <div id="section-charges" class="card" style="margin-top:0">
     <div class="charges-header">
-      <div class="charges-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+      <div class="charges-title" style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         &#128201; Fournisseurs
         <span id="chargesTotalBadge" class="charges-total-badge">0&nbsp;&euro;/mois</span>
-        <span id="chargesBreakdown" style="display:flex;gap:6px;flex-wrap:wrap"></span>
+        <span id="chargesBreakdown" style="display:flex;gap:10px;flex-wrap:wrap;margin-left:4px"></span>
       </div>
       <div style="display:flex;gap:8px">
         <button class="btn-sync-charges" onclick="window._syncCharges()" title="Analyse toutes les factures Pennylane">&#8635; Scanner PL</button>
@@ -394,9 +394,9 @@
       <option value="annuel">Une fois par an</option>
       <option value="ponctuel">Ponctuel (hors projection)</option>
     </select>
-    <label style="display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;font-size:12px;color:var(--text)">
+    <label style="display:flex;align-items:center;gap:10px;margin-bottom:24px;cursor:pointer;font-size:12px;color:var(--text)">
       <input type="checkbox" id="cmAutoProp" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0" />
-      Propager la catégorie à toutes les factures Pennylane de ce fournisseur
+      Propager la catégorie à toutes les factures Pennylane
     </label>
     <div style="border-top:1px solid var(--border);margin-bottom:12px"></div>
     <input type="text" id="cmNote" placeholder="Note interne…" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:8px;display:block" />
@@ -953,7 +953,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.0.5
+// FOURNISSEURS — v3.0.6
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', irregulier: 'Variable',
@@ -1078,7 +1078,7 @@ function fournisseurRow(c) {
   const amount = parseFloat(c.monthlyRef)||0;
   const amtStr = amount ? amount.toFixed(2) + '\u00a0\u20ac' + (c.periodicity&&c.periodicity!=='ponctuel'?'<small style="font-size:10px;color:var(--muted2)">/mois</small>':'') : '';
 
-  return '<div class="charge-row ' + (needsAction?'pending':'confirmed') + '">' +
+  return '<div class="charge-row ' + (needsAction?'pending':'confirmed') + '" onclick="window._openCharge(\'' + c.id + '\')" style="cursor:pointer" >' +
     '<div class="charge-icon">' + (CEMOJI[c.category]||'\uD83D\uDCCC') + '</div>' +
     '<div class="charge-info">' +
       '<div class="charge-name">' + _ce(c.name) + (c.source==='manual'?'<span style="font-size:10px;color:var(--info);margin-left:5px">manuel</span>':'') + '</div>' +
@@ -1089,7 +1089,7 @@ function fournisseurRow(c) {
       catBadge + autoBadge + periodBadge +
     '</div>' +
     '<div class="charge-action-btns"><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>' +
-      '<button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')" style="opacity:0.5">&#10005;</button>' +
+      '<button class="cab cab-delete" onclick="event.stopPropagation();window._deleteCharge(\'' + c.id + '\')" style="opacity:0.5">&#10005;</button>' +
     '</div>' +
     '</div>';
 }
@@ -1123,12 +1123,11 @@ window._openCharge = id => {
   document.getElementById('chargesModalTitle').textContent = id ? '' : 'Ajouter un fournisseur';
   const nameInput = document.getElementById('cmName');
   const amountInput = document.getElementById('cmAmount');
-  nameInput.style.opacity = isAuto ? '0.45' : '1';
-  nameInput.readOnly = isAuto;
-  amountInput.style.opacity = '1';
-  amountInput.readOnly = false;
+  // Nom et montant toujours grisés (info PL, pas modifiable ici)
+  nameInput.style.opacity = '0.45'; nameInput.readOnly = true;
+  amountInput.style.opacity = '0.45'; amountInput.readOnly = true;
   document.getElementById('cmName').value = c.name||'';
-  document.getElementById('cmAmount').value = c.monthlyRef||'';
+  document.getElementById('cmAmount').value = c.monthlyRef ? c.monthlyRef.toFixed(2) : '';
   document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
   document.getElementById('cmAutoProp').checked = !!c.autoPropagation;
   _fillCatSelect(document.getElementById('cmCategory'), c.plCategoryId||null);
