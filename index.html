@@ -166,7 +166,7 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v2.21 == */
+/* == Layout charge row v3.0 == */
 .charge-row { display:flex; align-items:center; gap:12px; }
 .charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.21</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.0</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.21</div>
+      <div class="header-version">v3.0</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -360,66 +360,48 @@
     </div>
 
   </div>
-  <div class="content" id="tabContentCharges" style="display:none">
-    <div id="section-charges" class="card" style="display:block;margin-top:0">
-      <div class="charges-header">
-        <div class="charges-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">&#128200; Charges r&eacute;currentes<span id="chargesTotalBadge" class="charges-total-badge">0 &euro;/mois</span><span id="chargesBreakdown" style="display:flex;gap:6px;flex-wrap:wrap"></span></div>
-        <div style="display:flex;gap:8px">
-          <button class="btn-sync-charges" onclick="window._syncCharges()" title="Analyse 6 mois de factures Pennylane pour détecter de nouveaux fournisseurs récurrents">&#8635; Scanner PL</button>
-          <button class="btn-add-charge" onclick="window._openCharge(null)">+ Ajouter</button>
-        </div>
+  <div class="cont<div id="tabContentCharges" style="display:none">
+  <div id="section-charges" class="card" style="margin-top:0">
+    <div class="charges-header">
+      <div class="charges-title" style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+        &#128201; Fournisseurs
+        <span id="chargesTotalBadge" class="charges-total-badge">0&nbsp;&euro;/mois</span>
+        <span id="chargesBreakdown" style="display:flex;gap:6px;flex-wrap:wrap"></span>
       </div>
-      <div>
-        <div class="charges-group-label">&#10067; &Agrave; qualifier <span id="chargesPendingCount">0</span></div>
-        <div id="chargesPendingList"></div>
+      <div style="display:flex;gap:8px">
+        <button class="btn-sync-charges" onclick="window._syncCharges()" title="Analyse toutes les factures Pennylane">&#8635; Scanner PL</button>
+        <button class="btn-add-charge" onclick="window._openCharge(null)">+ Ajouter</button>
       </div>
-      <div>
-        <details id="details-confirmed" style="margin-top:4px">
-          <summary style="cursor:pointer;list-style:none;display:flex;align-items:center;gap:6px;padding:4px 0;user-select:none">
-            <span id="conf-toggle-arrow" style="font-size:9px;color:var(--muted2);transition:transform .2s">&#9654;</span>
-            <span class="charges-group-label" style="margin:0">&#10003; Confirm&eacute;es <span id="conf-toggle-count"></span></span>
-          </summary>
-          <div id="chargesConfirmedList" style="margin-top:6px"></div>
-        </details>
-      </div>
-      
     </div>
+    <div id="chargesByMonth"></div>
   </div>
 </div>
 
 <div id="chargesModal">
   <div class="charges-modal-box">
     <div id="chargesModalTitle" style="font-size:12px;color:var(--muted2);margin-bottom:10px;min-height:14px;text-transform:uppercase;letter-spacing:.06em"></div>
-
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input type="text" id="cmName" placeholder="Fournisseur"
-        style="flex:2;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
-      <input type="number" id="cmAmount" placeholder="Montant €" step="0.01"
-        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
+      <input type="text" id="cmName" placeholder="Fournisseur" style="flex:2;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
+      <input type="number" id="cmAmount" placeholder="Montant €" step="0.01" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
     </div>
-
-    <select id="cmCategory"
-      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:10px;display:block">
+    <select id="cmCategory" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:10px;display:block">
       <option value="">Chargement...</option>
     </select>
-
-    <select id="cmPeriod"
-      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:16px;display:block">
+    <select id="cmPeriod" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:10px;display:block">
       <option value="mensuel">Tous les mois</option>
       <option value="irregulier">Fréquence variable</option>
       <option value="trimestriel">Tous les trimestres</option>
       <option value="annuel">Une fois par an</option>
+      <option value="ponctuel">Ponctuel (hors projection)</option>
     </select>
-
+    <label style="display:flex;align-items:center;gap:10px;margin-bottom:16px;cursor:pointer;font-size:12px;color:var(--text)">
+      <input type="checkbox" id="cmAutoProp" style="width:15px;height:15px;accent-color:var(--accent);flex-shrink:0" />
+      Propager la catégorie à toutes les factures Pennylane de ce fournisseur
+    </label>
     <div style="border-top:1px solid var(--border);margin-bottom:12px"></div>
-
-    <input type="text" id="cmNote" placeholder="Note interne…"
-      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:8px;display:block" />
-
+    <input type="text" id="cmNote" placeholder="Note interne…" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:8px;display:block" />
     <div style="font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;margin-bottom:4px">Message comptable <span style="font-size:10px;color:var(--info);font-weight:400;text-transform:none">(visible dans Pennylane)</span></div>
-    <input type="text" id="cmComptable" placeholder="Visible par votre comptable dans PL…"
-      style="width:100%;background:var(--surface2);border:1px solid rgba(96,165,250,0.25);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:16px;display:block" />
-
+    <input type="text" id="cmComptable" placeholder="Visible par votre comptable…" style="width:100%;background:var(--surface2);border:1px solid rgba(96,165,250,0.25);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:16px;display:block" />
     <input type="hidden" id="cmVariable" value="false" />
     <div class="modal-btns">
       <button class="modal-btn-cancel" onclick="window._closeCharge()">Annuler</button>
@@ -968,177 +950,205 @@ function initChargesModule() {
   });
 }
 
-function renderCharges() {
-  const pend = [], conf = [];
-  for (const [id,c] of Object.entries(_cd)) {
-    if (c.status==='confirmed') conf.push({id,...c});
-    else if (c.status!=='rejected') pend.push({id,...c});
-  }
-  conf.sort((a,b)=>b.monthlyRef-a.monthlyRef);
-  pend.sort((a,b)=>b.monthlyRef-a.monthlyRef);
-  document.getElementById('chargesPendingCount').textContent = pend.length;
-  const _cc=document.getElementById('chargesConfirmedCount'); if(_cc) _cc.textContent=conf.length;
-  const badge = document.getElementById('chargesNavBadge');
-  if(pend.length>0){ badge.textContent=pend.length; badge.style.display=''; }
-  else badge.style.display='none';
-  document.getElementById('chargesPendingList').innerHTML = pend.length
-    ? pend.map(c=>cRow(c,'pending')).join('')
-    : '<div class="empty">Aucune charge \u00e0 qualifier \u2713</div>';
-  const MOIS=['Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'];
-  const fmtMonth=k=>{if(k==='?')return'Sans date';const[y,m]=k.split('-');return(MOIS[parseInt(m)-1]||m)+' '+y;};
-  let confHtml='';
-  if(!conf.length){confHtml='<div class="empty">Aucune charge confirmée</div>';}
-  else {
-    const byM={};
-    conf.forEach(c=>{const mk=c.lastInvoiceDate?c.lastInvoiceDate.substring(0,7):'?';if(!byM[mk])byM[mk]=[];byM[mk].push(c);});
-    Object.keys(byM).sort().reverse().forEach(mk=>{
-      confHtml+='<div style="font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;padding:10px 4px 4px;border-top:1px solid var(--border);margin-top:4px">'+fmtMonth(mk)+'</div>';
-      confHtml+=byM[mk].map(c=>cRow(c,'confirmed')).join('');
-    });
-  }
-  const confToggleCount=document.getElementById('conf-toggle-count');
-  if(confToggleCount)confToggleCount.textContent=conf.length?' ('+conf.length+')':'';
-  document.getElementById('chargesConfirmedList').innerHTML=confHtml;
-  const monthlyVal = c => {
-    const r = parseFloat(c.monthlyRef)||0;
-    if (c.periodicity==='trimestriel') return r/3;
-    if (c.periodicity==='annuel') return r/12;
-    return r; // mensuel et irregulier : montant tel quel (c'est déjà une moyenne)
-  };
-  const total = conf.reduce((s,c)=>s+monthlyVal(c),0);
-  document.getElementById('chargesTotalBadge').textContent = Math.round(total)+' €/mois';
+
+// ─────────────────────────────────────────────
+// FOURNISSEURS — v3.0
+// ─────────────────────────────────────────────
+const PERIOD_LABEL = {
+  mensuel: 'Mensuel', irregulier: 'Variable',
+  trimestriel: 'Trimestriel', annuel: 'Annuel', ponctuel: 'Ponctuel'
+};
+const PERIOD_COLOR = {
+  mensuel:'var(--accent)', irregulier:'var(--warn)',
+  trimestriel:'var(--info)', annuel:'var(--muted2)', ponctuel:'var(--muted2)'
+};
+
+function monthlyVal(c) {
+  const r = parseFloat(c.monthlyRef)||0;
+  if (c.periodicity==='trimestriel') return r/3;
+  if (c.periodicity==='annuel') return r/12;
+  if (c.periodicity==='ponctuel') return 0;
+  return r;
+}
+
+function renderCharges(charges) {
+  // Totaux
+  const list = Object.values(charges);
+  const active = list.filter(c => c.periodicity !== 'ponctuel');
+  const total = active.reduce((s,c) => s + monthlyVal(c), 0);
+  const badge = document.getElementById('chargesTotalBadge');
+  if (badge) badge.textContent = Math.round(total) + '\u00a0\u20ac/mois';
 
   // Breakdown par nature
-  const breakdown = {fixe:0, variable:0, invest:0, autre:0};
-  conf.forEach(c => {
-    const n = _catNature(c.plCategoryLabel || c.category || '');
+  const breakdown = {fixe:0, variable:0, invest:0};
+  active.forEach(c => {
+    const n = _catNature(c.plCategoryLabel||'');
     breakdown[n] = (breakdown[n]||0) + monthlyVal(c);
   });
   const bEl = document.getElementById('chargesBreakdown');
   if (bEl) {
     const items = [
-      {label:'Charges fixes', amount: breakdown.fixe, color:'#818cf8'},
-      {label:'Charges variables', amount: breakdown.variable, color:'#4ade80'},
-      {label:'Travaux (temp.)', amount: breakdown.invest, color:'#fb923c'},
-    ].filter(i => i.amount > 0);
+      {label:'Fixes', amount:breakdown.fixe, color:'#818cf8'},
+      {label:'Variables', amount:breakdown.variable, color:'#4ade80'},
+      {label:'Investissements', amount:breakdown.invest, color:'#fb923c'},
+    ].filter(i=>i.amount>0);
     bEl.innerHTML = items.map(i =>
       '<span style="font-size:11px;padding:2px 8px;border-radius:4px;background:rgba(255,255,255,0.05);color:'+i.color+';white-space:nowrap">'+
-      i.label+' '+Math.round(i.amount)+'€</span>'
+      i.label+'\u00a0'+Math.round(i.amount)+'\u20ac</span>'
     ).join('');
   }
+
+  // Grouper par mois (lastInvoiceDate) puis par fournisseur
+  const MOIS=['Janvier','F\u00e9vrier','Mars','Avril','Mai','Juin','Juillet','Ao\u00fbt','Septembre','Octobre','Novembre','D\u00e9cembre'];
+  const fmtMonth = k => {
+    if(!k||k==='?') return 'Sans date';
+    const [y,m]=k.split('-');
+    return (MOIS[parseInt(m)-1]||m)+' '+y;
+  };
+
+  // Trier : sans périodicité en premier (à qualifier), puis par montant
+  const sorted = list.sort((a,b) => {
+    const aNeedsAction = !a.periodicity || a.periodicity==='';
+    const bNeedsAction = !b.periodicity || b.periodicity==='';
+    if (aNeedsAction !== bNeedsAction) return aNeedsAction ? -1 : 1;
+    return (parseFloat(b.monthlyRef)||0) - (parseFloat(a.monthlyRef)||0);
+  });
+
+  // Grouper par mois de dernière facture
+  const byMonth = {};
+  sorted.forEach(c => {
+    const mk = c.lastInvoiceDate ? c.lastInvoiceDate.substring(0,7) : '?';
+    if (!byMonth[mk]) byMonth[mk] = [];
+    byMonth[mk].push(c);
+  });
+
+  // Générer le HTML
+  let html = '';
+  const monthKeys = Object.keys(byMonth).sort((a,b) => {
+    if(a==='?') return 1; if(b==='?') return -1;
+    return b.localeCompare(a);
+  });
+
+  // D'abord : les "à qualifier" (sans périodicité) peu importe leur mois
+  const toQualify = sorted.filter(c => !c.periodicity);
+  if (toQualify.length) {
+    html += '<div style="font-size:10.5px;font-weight:700;color:var(--warn);text-transform:uppercase;letter-spacing:.06em;padding:10px 4px 6px;display:flex;align-items:center;gap:6px">' +
+      '<span style="background:rgba(251,191,36,0.15);color:var(--warn);border-radius:4px;padding:1px 6px">' + toQualify.length + '</span> \u00c0 qualifier</div>';
+    html += toQualify.map(c => fournisseurRow(c)).join('');
+  }
+
+  // Ensuite : les qualifiés, groupés par mois
+  monthKeys.forEach(mk => {
+    const month_charges = byMonth[mk].filter(c => c.periodicity);
+    if (!month_charges.length) return;
+    html += '<div style="font-size:10.5px;font-weight:700;color:var(--muted2);text-transform:uppercase;letter-spacing:.06em;padding:10px 4px 4px;border-top:1px solid var(--border);margin-top:4px">' + fmtMonth(mk) + '</div>';
+    html += month_charges.map(c => fournisseurRow(c)).join('');
+  });
+
+  if (!html) html = '<div class="empty">Aucun fournisseur. Cliquez sur "Scanner PL" pour d\u00e9tecter automatiquement.</div>';
+
+  const el = document.getElementById('chargesByMonth');
+  if (el) el.innerHTML = html;
 }
 
-function cRow(c, status) {
-  const icon = CEMOJI[c.category] || '&#128204;';
-  const r = parseFloat(c.monthlyRef||0);
-  const PER_LABEL = {mensuel:'/mois', irregulier:'/mois~', trimestriel:'/trim.', annuel:'/an'};
-  const per = PER_LABEL[c.periodicity] || '/mois';
-  const eq = c.periodicity==='trimestriel'?' ('+(r/3).toFixed(2)+'\u00a0\u20ac/mois)':c.periodicity==='annuel'?' ('+(r/12).toFixed(2)+'\u00a0\u20ac/mois)':'';
-  const msrc = c.source==='manual'?'<span style="font-size:10px;color:var(--info);margin-left:5px">manuel</span>':'';
-  const det = '';
-  const btns = status==='pending'
-    ? '<button class="cab cab-confirm" onclick="window._confirmCharge(\'' + c.id + '\')">&#10003; Confirmer</button><button class="cab cab-reject" onclick="window._rejectCharge(\'' + c.id + '\')">Ignorer</button><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>'
-    : '<button class="cab cab-modify" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button><button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')">Supprimer</button>';
-  const catLabel = c.plCategoryLabel || '';
-  const catBadge = catLabel
-    ? '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)">'+catLabel+'</span>'
-    : '<span style="font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(107,114,128,0.1);color:var(--muted2);border:1px solid var(--border)">\u00c0 affecter</span>';
-  const varBadge = (c.montantVariable || c.periodicity==='irregulier') ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">~ variable</span>' : '';
-  return '<div class="charge-row '+status+'">'+
-    '<div class="charge-icon">'+icon+'</div>'+
-    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.internalNote?_ce(c.internalNote):'')+
-    (c.lastInvoiceDate?'<span style="font-size:10px;color:var(--muted2)"> · '+c.lastInvoiceDate+(c.lastInvoiceNumber?' · N°'+c.lastInvoiceNumber:'')+'</span>':
-    (c.monthsDetected?'<span style="font-size:10px;color:var(--muted2)"> · '+c.monthsDetected+' factures détectées</span>':''))+'</div></div>'+
-    '<div class="charge-mid">'+
-      '<div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>\u00a0'+per+eq+'</small></div>'+
-      catBadge+
-    '</div>'+
-    '<div class="charge-action-btns">'+btns+'</div>'+
+function fournisseurRow(c) {
+  const needsAction = !c.periodicity;
+  const catBadge = c.plCategoryLabel
+    ? '<span style="font-size:11px;font-weight:600;padding:2px 8px;border-radius:5px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)">' + _ce(c.plCategoryLabel) + '</span>'
+    : '<span style="font-size:11px;padding:2px 8px;border-radius:5px;background:rgba(107,114,128,0.1);color:var(--muted2);border:1px solid var(--border)">\u00c0 affecter</span>';
+  const periodBadge = c.periodicity
+    ? '<span style="font-size:10px;padding:2px 7px;border-radius:4px;background:rgba(255,255,255,0.06);color:' + (PERIOD_COLOR[c.periodicity]||'var(--muted2)') + '">' + (PERIOD_LABEL[c.periodicity]||c.periodicity) + '</span>'
+    : '';
+  const autoBadge = c.autoPropagation
+    ? '<span style="font-size:10px;color:var(--accent);margin-left:2px" title="Propagation auto activ\u00e9e">\u21ba</span>'
+    : '';
+  const invInfo = c.lastInvoiceDate
+    ? '<span style="font-size:10px;color:var(--muted2)"> \u00b7 ' + c.lastInvoiceDate + (c.lastInvoiceNumber?' \u00b7 N\u00b0'+_ce(c.lastInvoiceNumber):'') + '</span>'
+    : (c.monthsDetected ? '<span style="font-size:10px;color:var(--muted2)"> \u00b7 ' + c.monthsDetected + ' factures</span>' : '');
+  const amount = parseFloat(c.monthlyRef)||0;
+  const amtStr = amount ? amount.toFixed(2) + '\u00a0\u20ac' + (c.periodicity&&c.periodicity!=='ponctuel'?'<small style="font-size:10px;color:var(--muted2)">/mois</small>':'') : '';
+
+  return '<div class="charge-row ' + (needsAction?'pending':'confirmed') + '">' +
+    '<div class="charge-icon">' + (CEMOJI[c.category]||'\uD83D\uDCCC') + '</div>' +
+    '<div class="charge-info">' +
+      '<div class="charge-name">' + _ce(c.name) + (c.source==='manual'?'<span style="font-size:10px;color:var(--info);margin-left:5px">manuel</span>':'') + '</div>' +
+      '<div class="charge-meta">' + invInfo + '</div>' +
+    '</div>' +
+    '<div class="charge-mid">' +
+      '<div class="charge-amount">' + amtStr + '</div>' +
+      catBadge + autoBadge + periodBadge +
+    '</div>' +
+    '<div class="charge-action-btns"><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>' +
+      '<button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')" style="opacity:0.5">&#10005;</button>' +
+    '</div>' +
     '</div>';
 }
 
-
-// Toggle flèche accordéon
-document.addEventListener('toggle', e => {
-  if(e.target.id==='details-confirmed') {
-    const arrow = document.getElementById('conf-toggle-arrow');
-    if(arrow) arrow.style.transform = e.target.open ? 'rotate(90deg)' : 'rotate(0deg)';
-  }
-}, true);
-window._showIgnored = async () => {
-  const { getDatabase, ref, get, update } = await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js');
-  const db = getDatabase((await import('https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js')).getApps()[0]);
-  const snap = await get(ref(db,'tresorerie/charges_recurrentes'));
-  const all = snap.val()||{};
-  const updates = {};
-  for(const [id,c] of Object.entries(all)) {
-    if(c.status==='ignored'||c.status==='rejected') updates[id+'/status']='pending';
-  }
-  if(Object.keys(updates).length) await update(ref(db,'tresorerie/charges_recurrentes'),updates);
-};
-window._setTab = (tab) => {
-  document.getElementById('tabContentDashboard').style.display = tab==='dashboard' ? '' : 'none';
-  document.getElementById('tabContentCharges').style.display  = tab==='charges'   ? '' : 'none';
-  document.getElementById('tabDashboard').classList.toggle('active', tab==='dashboard');
-  document.getElementById('tabCharges').classList.toggle('active',   tab==='charges');
-};
-window._confirmCharge = async id => {
-  const c = _cd[id]||{};
-  await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'confirmed'});
-  if(c.plCategoryId) _writeCatToPennylane(c.name, c.plCategoryId);
-};
-window._rejectCharge  = async id => { await update(ref(db,'tresorerie/charges_recurrentes/'+id),{status:'ignored'}); };
-window._deleteCharge  = async id => { await remove(ref(db,'tresorerie/charges_recurrentes/'+id)); };
 window._openCharge = id => {
-  _eid = id; const c = id?(_cd[id]||{}):{}; 
-  document.getElementById('chargesModalTitle').textContent = id ? '' : 'Ajouter une charge';
+  _eid = id;
+  const c = id ? (_cd[id]||{}) : {};
   const isAuto = c.source === 'auto';
+  document.getElementById('chargesModalTitle').textContent = id ? '' : 'Ajouter un fournisseur';
   const nameInput = document.getElementById('cmName');
   const amountInput = document.getElementById('cmAmount');
   nameInput.style.opacity = isAuto ? '0.45' : '1';
   nameInput.readOnly = isAuto;
-  amountInput.style.opacity = isAuto ? '0.45' : '1';
-  amountInput.readOnly = isAuto;
+  amountInput.style.opacity = '1';
+  amountInput.readOnly = false;
   document.getElementById('cmName').value = c.name||'';
   document.getElementById('cmAmount').value = c.monthlyRef||'';
   document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
+  document.getElementById('cmAutoProp').checked = !!c.autoPropagation;
   _fillCatSelect(document.getElementById('cmCategory'), c.plCategoryId||null);
   document.getElementById('cmNote').value = c.internalNote||'';
   document.getElementById('cmComptable').value = c.plExternalRef||'';
   document.getElementById('chargesModal').classList.add('open');
-}
-window._closeCharge = () => { document.getElementById('chargesModal').classList.remove('open'); _eid=null; };
+};
+
+window._closeCharge = () => {
+  document.getElementById('chargesModal').classList.remove('open');
+  _eid = null;
+};
+
 window._saveCharge = async () => {
   const name = document.getElementById('cmName').value.trim();
   const amount = parseFloat(document.getElementById('cmAmount').value);
-  if(!name||isNaN(amount)){alert('Nom et montant requis');return;}
+  if (!name) { alert('Nom requis'); return; }
   const catSel = document.getElementById('cmCategory');
   const plCatId = catSel.value ? parseInt(catSel.value) : null;
-  const plCatLabel = catSel.value ? (catSel.options[catSel.selectedIndex]?.text || '') : '';
-  const id = _eid||('manual_'+Date.now());
-  await set(ref(db,'tresorerie/charges_recurrentes/'+id),{
-    name, monthlyRef:amount,
-    periodicity:document.getElementById('cmPeriod').value,
-    category:document.getElementById('cmCategory').value,
-    internalNote:document.getElementById('cmNote').value.trim(),
+  const plCatLabel = catSel.value ? (catSel.options[catSel.selectedIndex]?.text||'').replace(/^\u00a0+[\u21b3]?\s*/,'') : '';
+  const period = document.getElementById('cmPeriod').value;
+  const autoProp = document.getElementById('cmAutoProp').checked;
+  const id = _eid || ('manual_'+Date.now());
+  const existing = _cd[id]||{};
+  await set(ref(db,'tresorerie/charges_recurrentes/'+id), {
+    ...existing,
+    name, monthlyRef: isNaN(amount)?0:amount,
+    periodicity: period,
+    category: existing.category||'autre',
+    internalNote: document.getElementById('cmNote').value.trim(),
+    plExternalRef: document.getElementById('cmComptable').value.trim(),
     plCategoryId: plCatId,
     plCategoryLabel: plCatLabel,
-    status:'confirmed', source:_eid?(_cd[_eid]?.source||'manual'):'manual',
-    montantVariable: ['irregulier','variable'].includes(document.getElementById('cmPeriod').value),
-    plExternalRef: document.getElementById('cmComptable').value.trim(),
-    updatedAt:new Date().toISOString()
+    autoPropagation: autoProp,
+    montantVariable: period==='irregulier',
+    source: existing.source||'manual',
+    updatedAt: new Date().toISOString()
   });
-  // Écriture asynchrone vers Pennylane (non bloquante)
-  if(plCatId) _writeCatToPennylane(name, plCatId);
+  if (plCatId && autoProp) _writeCatToPennylane(name, plCatId);
   window._closeCharge();
 };
+
+window._deleteCharge = async id => {
+  if (confirm('Supprimer ce fournisseur ?')) await remove(ref(db,'tresorerie/charges_recurrentes/'+id));
+};
+
 window._syncCharges = async () => {
   const btn = document.querySelector('.btn-sync-charges');
-  btn.textContent='\u23f3 Analyse\u2026'; btn.disabled=true;
+  btn.textContent='\u23f3 Chargement\u2026'; btn.disabled=true;
   try {
     let all=[], cursor=null, iter=0;
     const tok = await auth.currentUser.getIdToken();
-    btn.textContent='⏳ Chargement…';
     while(iter<50){
       let url=PROXY+'?endpoint=supplier_invoices&limit=100';
       if(cursor) url+='&cursor='+encodeURIComponent(cursor);
@@ -1147,156 +1157,64 @@ window._syncCharges = async () => {
       iter++;
       if(!d.has_more||!d.next_cursor) break;
       cursor=d.next_cursor;
-      if(iter%5===0) btn.textContent='⏳ '+all.length+' factures…';
+      if(iter%5===0) btn.textContent='\u23f3 '+all.length+'\u2026';
     }
-    const extr=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1]:(l||'?').substring(0,30);};
+    const extr=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1].trim():(l||'').substring(0,40);};
     const byS={};
-    for(const i of all){const n=extr(i.label);if(!byS[n])byS[n]=[];byS[n].push({date:i.date,amount:parseFloat(i.amount),num:i.invoice_number||''});}
+    for(const i of all){
+      const n=extr(i.label);
+      if(!byS[n])byS[n]=[];
+      byS[n].push({date:i.date,amount:parseFloat(i.amount)||0,num:i.invoice_number||''});
+    }
     let count=0;
     for(const [name,items] of Object.entries(byS)){
+      if(items.length<1) continue;
       const months=[...new Set(items.map(i=>i.date.substring(0,7)))];
-      if(months.length<2) continue;
-      const tots={};for(const i of items){const m=i.date.substring(0,7);tots[m]=(tots[m]||0)+i.amount;}
+      const tots={};
+      for(const i of items){const m=i.date.substring(0,7);tots[m]=(tots[m]||0)+i.amount;}
       const avg=Object.values(tots).reduce((a,b)=>a+b,0)/Object.values(tots).length;
-      const nid='auto_'+name.replace(/[^a-zA-Z0-9]/g,'_').toLowerCase().substring(0,20)+'_'+Date.now();
-      const lastInv = byS[name].sort((a,b)=>b.date.localeCompare(a.date))[0];
-      await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{name,monthlyRef:parseFloat(avg.toFixed(2)),periodicity:'mensuel',category:'autre',status:'pending',source:'auto',monthsDetected:months.length,lastInvoiceDate:lastInv?.date||'',lastInvoiceNumber:lastInv?.num||'',updatedAt:new Date().toISOString()});
-      count++;
+      const lastInv=items.sort((a,b)=>b.date.localeCompare(a.date))[0];
+      const existing=Object.entries(_cd).find(([k,v])=>v.name===name);
+      if(existing){
+        const [eid,ev]=existing;
+        await update(ref(db,'tresorerie/charges_recurrentes/'+eid),{
+          monthlyRef:parseFloat(avg.toFixed(2)),
+          monthsDetected:items.length,
+          lastInvoiceDate:lastInv?.date||'',
+          lastInvoiceNumber:lastInv?.num||'',
+          updatedAt:new Date().toISOString()
+        });
+        // Propagation auto si activée
+        if(ev.autoPropagation && ev.plCategoryId) _writeCatToPennylane(name, ev.plCategoryId);
+      } else if(months.length>=1){
+        const nid='auto_'+name.replace(/[^a-zA-Z0-9]/g,'_').toLowerCase().substring(0,25)+'_'+Date.now();
+        await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{
+          name, monthlyRef:parseFloat(avg.toFixed(2)),
+          periodicity:'', category:'autre',
+          source:'auto', monthsDetected:items.length,
+          lastInvoiceDate:lastInv?.date||'',
+          lastInvoiceNumber:lastInv?.num||'',
+          autoPropagation:false,
+          updatedAt:new Date().toISOString()
+        });
+        count++;
+      }
     }
-    btn.textContent='\u2713 '+count+' nouvelle(s)';
-    setTimeout(()=>{btn.textContent='\u21bb D\u00e9tecter';btn.disabled=false;},3000);
+    btn.textContent='\u2713 '+count+' nouveau(x)';
+    setTimeout(()=>{btn.textContent='\u21bb Scanner PL';btn.disabled=false;},3000);
   } catch(e){btn.textContent='\u2717 Erreur';btn.disabled=false;console.error(e);}
 };
-// ── Catégories Pennylane ──
-let _plCats = []; // [{id, label}]
 
-async function loadPLCategories() {
-  try {
-    const tok = await auth.currentUser.getIdToken();
-    const d = await fetch(PROXY+'/categories?limit=100', {headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
-    _plCats = (d.items||[])
-      .filter(c => c.direction === 'cash_out')
-      .sort((a,b) => a.label.localeCompare(b.label));
-    // Stocker dans Firebase pour lecture offline
-    set(ref(db,'tresorerie/pl_categories'), Object.fromEntries(_plCats.map(c=>['c'+c.id,{id:c.id,label:c.label}])));
-    _fillCatSelect(document.getElementById('cmCategory'), null);
-  } catch(e) { console.warn('cats:', e); }
-}
+window._showIgnored = () => {};
 
-function _fillCatSelect(sel, currentId) {
-  if (!sel) return;
-
-  // Hiérarchie parent → enfants (basée sur Familles analytiques PL)
-  const PARENTS = {
-    'Achats-revente':              ['Achats Snack','Achats boissons','Achats Bar/boissons'],
-    'Sous-traitance & Prestations':['Sous-traitance BAR','Sous-traitance Activi\u00e9ts','Sous-traitance Activit\u00e9s','Sous-traitance Studios'],
-    'Locaux & frais':              ['Locaux (tous les frais)','Equipement entretien','Petits \u00c9quipements -500\u20ac'],
-    'Assurances':                  ['Assurance des locaux','Assurance RC','Assurarance bancaires'],
-  };
-  // Construire map label→id
-  const byLabel = {};
-  (_plCats||[]).forEach(c => { byLabel[c.label.trim()] = c; });
-
-  // Enfants déjà classés
-  const childLabels = new Set(Object.values(PARENTS).flat());
-
-  // Construire le HTML
-  let html = '<option value="">\u2014 \u00c0 affecter \u2014</option>';
-
-  // 1. Groupes avec hiérarchie
-  const FAMILY_ICONS = {
-    'Achats-revente':'\uD83C\uDF7A',
-    'Sous-traitance & Prestations':'\uD83D\uDC77',
-    'Locaux & frais':'\uD83C\uDFE0',
-    'Assurances':'\uD83D\uDEE1\uFE0F',
-  };
-  Object.entries(PARENTS).forEach(([parentLabel, childrenLabels]) => {
-    const parent = byLabel[parentLabel];
-    const children = childrenLabels.map(l => byLabel[l] || byLabel[l.trim()]).filter(Boolean);
-    if (!parent && !children.length) return;
-    const icon = FAMILY_ICONS[parentLabel] || '\uD83D\uDCCC';
-    html += `<optgroup label="${icon} ${parentLabel}">`;
-    if (parent) html += `<option value="${parent.id}" ${parent.id==currentId?'selected':''}>${parent.label}</option>`;
-    children.forEach(c => {
-      html += `<option value="${c.id}" ${c.id==currentId?'selected':''}>\u00a0\u00a0\u21b3 ${c.label}</option>`;
-    });
-    html += '</optgroup>';
-  });
-
-  // 2. Autres catégories (ni parent ni enfant)
-  const OTHER_GROUPS = [
-    {icon:'\u26A1', label:'Energie', match:['Enedis','eau','lectricit']},
-    {icon:'\uD83C\uDFD7\uFE0F', label:'Investissements', match:['Investissements','Gros \u00e9quipement','quipements +']},
-    {icon:'\uD83D\uDCBB', label:'Digital & Comm.', match:['Logiciel','Services Web','Communication','T\u00e9l\u00e9phone','Licence']},
-    {icon:'\uD83D\uDCC4', label:'Comptable & Taxes', match:['Honoraire','Frais bancaires','Impots','Sacem','D\u00e9placement','Restauration']},
-    {icon:'\uD83D\uDC64', label:'RH', match:['Salaires']},
-  ];
-  const usedIds = new Set();
-  // Marquer les ids déjà affichés
-  Object.entries(PARENTS).forEach(([pl, children]) => {
-    const p = byLabel[pl]; if(p) usedIds.add(p.id);
-    children.forEach(cl => { const c = byLabel[cl]; if(c) usedIds.add(c.id); });
-  });
-
-  OTHER_GROUPS.forEach(g => {
-    const cats = (_plCats||[]).filter(c => !usedIds.has(c.id) && c.direction !== 'cash_in' && g.match.some(m => c.label.toLowerCase().includes(m.toLowerCase())));
-    if (!cats.length) return;
-    cats.forEach(c => usedIds.add(c.id));
-    html += `<optgroup label="${g.icon} ${g.label}">`;
-    html += cats.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
-    html += '</optgroup>';
-  });
-
-  // Reste non classé
-  const rest = (_plCats||[]).filter(c => !usedIds.has(c.id) && c.direction !== 'cash_in');
-  if (rest.length) {
-    html += '<optgroup label="\uD83D\uDCCC Autres">';
-    html += rest.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
-    html += '</optgroup>';
+// Toggle flèche accordéon (conservé pour compatibilité)
+document.addEventListener('toggle', e => {
+  if(e.target.id==='details-confirmed'){
+    const arrow=document.getElementById('conf-toggle-arrow');
+    if(arrow) arrow.style.transform=e.target.open?'rotate(90deg)':'rotate(0deg)';
   }
+}, true);
 
-  sel.innerHTML = html;
-}
-
-// Ecrire la catégorie vers Pennylane pour toutes les factures du fournisseur
-async function _writeCatToPennylane(chargeName, catId) {
-  if (!catId || !chargeName) return;
-  try {
-    const tok = await auth.currentUser.getIdToken();
-    // Récupérer TOUTES les factures du fournisseur (sans limite de date)
-    let all=[], cursor=null, iter=0;
-    const extract=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1].trim():(l||'').substring(0,30);};
-    while(iter<20){
-      let url=PROXY+'?endpoint=supplier_invoices&limit=100';
-      if(cursor) url+='&cursor='+encodeURIComponent(cursor);
-      const d=await fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
-      all=all.concat((d.items||[]).filter(i=>extract(i.label)===chargeName));
-      iter++;
-      if(!d.has_more||!d.next_cursor) break;
-      cursor=d.next_cursor;
-    }
-    // Écrire la catégorie sur chaque facture trouvée
-    const body = [{id: parseInt(catId), weight: '1'}];
-    for(const inv of all) {
-      await fetch(`${PROXY}/supplier_invoices/${inv.id}/categories`, {
-        method: 'PUT',
-        headers: {'Authorization':'Bearer '+tok, 'Content-Type':'application/json'},
-        body: JSON.stringify(body)
-      });
-    }
-    console.log('[PL] Cat\u00e9gorie \u00e9crite sur', all.length, 'factures de', chargeName);
-  } catch(e) { console.warn('[PL] writeCat error:', e); }
-}
-
-// Mapping catégorie PL → nature
-function _catNature(label) {
-  if (!label) return 'autre';
-  const l = label.toLowerCase();
-  if (l.includes('invest') || l.includes('travaux') || l.includes('équipement')) return 'invest';
-  if (l.includes('loyer') || l.includes('assurance') || l.includes('logiciel') || l.includes('abonnement') || l.includes('téléphone') || l.includes('licence') || l.includes('frais bancaire') || l.includes('honor')) return 'fixe';
-  if (l.includes('achat') || l.includes('sous-trait') || l.includes('salaire') || l.includes('prestataire') || l.includes('alimentat') || l.includes('snack')) return 'variable';
-  return 'fixe';
-}
 
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 document.getElementById('chargesModal').addEventListener('click',e=>{if(e.target===document.getElementById('chargesModal'))window._closeCharge();});
