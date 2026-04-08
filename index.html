@@ -166,7 +166,7 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v2.16 == */
+/* == Layout charge row v2.17 == */
 .charge-row { display:flex; align-items:center; gap:12px; }
 .charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.16</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.17</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.16</div>
+      <div class="header-version">v2.17</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -388,36 +388,43 @@
 
 <div id="chargesModal">
   <div class="charges-modal-box">
-    <div class="modal-title" id="chargesModalTitle" style="min-height:24px"></div>
-    <div class="modal-field"><label>Catégorie Pennylane</label>
-      <select id="cmCategory" size="1">
-        <option value="">Chargement...</option>
-      </select>
-    </div>
-    <div class="modal-field" id="cmNameField"><label id="cmNameLabel">Nom du fournisseur</label><input type="text" id="cmName" placeholder="Ex : Loyer, ENGIE, AXA..." /></div>
-    <div class="modal-field"><label>Montant de référence (&euro;)</label><input type="number" id="cmAmount" placeholder="0.00" step="0.01" /></div>
-    <div class="modal-field"><label>P&eacute;riodicit&eacute;</label>
-      <select id="cmPeriod">
-        <option value="mensuel">Tous les mois</option>
-        <option value="irregulier">Fréquence variable</option>
-        <option value="trimestriel">Tous les trimestres</option>
-        <option value="annuel">Une fois par an</option>
-      </select>
+    <div id="chargesModalTitle" style="font-size:12px;color:var(--muted2);margin-bottom:10px;min-height:14px;text-transform:uppercase;letter-spacing:.06em"></div>
+
+    <div style="display:flex;gap:8px;margin-bottom:10px">
+      <input type="text" id="cmName" placeholder="Fournisseur"
+        style="flex:2;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
+      <input type="number" id="cmAmount" placeholder="Montant €" step="0.01"
+        style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
     </div>
 
-    <div class="modal-field"><label>Note interne</label><input type="text" id="cmNote" placeholder="Ex : Contrat no..." /></div>
+    <select id="cmCategory"
+      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:10px;display:block">
+      <option value="">Chargement...</option>
+    </select>
+
+    <select id="cmPeriod"
+      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:16px;display:block">
+      <option value="mensuel">Tous les mois</option>
+      <option value="irregulier">Fréquence variable</option>
+      <option value="trimestriel">Tous les trimestres</option>
+      <option value="annuel">Une fois par an</option>
+    </select>
+
+    <div style="border-top:1px solid var(--border);margin-bottom:12px"></div>
+
+    <input type="text" id="cmNote" placeholder="Note interne…"
+      style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:8px;display:block" />
+
+    <input type="text" id="cmComptable" placeholder="Message pour le comptable (visible dans Pennylane)…"
+      style="width:100%;background:var(--surface2);border:1px solid rgba(96,165,250,0.25);border-radius:8px;padding:8px 12px;font-size:12px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:16px;display:block" />
+
     <input type="hidden" id="cmVariable" value="false" />
-    <div class="modal-field">
-      <label>Message comptable <span style="font-size:10px;font-weight:400;color:var(--info)">(écrit dans Pennylane)</span></label>
-      <input type="text" id="cmComptable" placeholder="Visible par votre comptable dans PL…" />
-    </div>
-    <input type="hidden" id="cmId" />
     <div class="modal-btns">
       <button class="modal-btn-cancel" onclick="window._closeCharge()">Annuler</button>
       <button class="modal-btn-save" onclick="window._saveCharge()">Enregistrer</button>
     </div>
   </div>
-</div>
+
 
 <script type="module">
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js';
@@ -1048,7 +1055,6 @@ window._openCharge = id => {
   document.getElementById('chargesModalTitle').textContent = id?'':'Ajouter une charge';
   const isAuto = c.source === 'auto';
   const nameInput = document.getElementById('cmName');
-  const nameLabel = document.getElementById('cmNameLabel');
   const amountInput = document.getElementById('cmAmount');
   if (isAuto) {
     nameInput.style.opacity='0.5'; nameInput.readOnly=true; nameLabel.textContent='';
@@ -1144,33 +1150,76 @@ async function loadPLCategories() {
 
 function _fillCatSelect(sel, currentId) {
   if (!sel) return;
-  const GROUPS = [
-    {icon:'\uD83C\uDF7A', label:'Achats bar', match:['Achats','revente','Snack','boisson','Restauration']},
-    {icon:'\uD83D\uDC77', label:'Sous-traitance', match:['Sous-traitance','Salaires']},
-    {icon:'\uD83C\uDFE0', label:'Locaux', match:['Loyer','Locaux','Equipement entretien']},
-    {icon:'\uD83D\uDEE1\uFE0F', label:'Assurances', match:['Assurance','Assur']},
-    {icon:'\u26A1', label:'Energie', match:['Enedis','eau','lectricit']},
-    {icon:'\uD83C\uDFD7\uFE0F', label:'Investissements', match:['Investissements','quipement']},
-    {icon:'\uD83D\uDCBB', label:'Digital & Comm.', match:['Logiciel','Services Web','Communication','T\u00e9l\u00e9phone','Licence']},
-    {icon:'\uD83D\uDCC4', label:'Comptable & Taxes', match:['Honoraire','Frais bancaires','Impots','Sacem','D\u00e9placement']},
-  ];
-  const used = new Set();
+
+  // Hiérarchie parent → enfants (basée sur Familles analytiques PL)
+  const PARENTS = {
+    'Achats-revente':              ['Achats Snack','Achats boissons','Achats Bar/boissons'],
+    'Sous-traitance & Prestations':['Sous-traitance BAR','Sous-traitance Activi\u00e9ts','Sous-traitance Activit\u00e9s','Sous-traitance Studios'],
+    'Locaux & frais':              ['Locaux (tous les frais)','Equipement entretien','Petits \u00c9quipements -500\u20ac'],
+    'Assurances':                  ['Assurance des locaux','Assurance RC','Assurarance bancaires'],
+  };
+  // Construire map label→id
+  const byLabel = {};
+  (_plCats||[]).forEach(c => { byLabel[c.label.trim()] = c; });
+
+  // Enfants déjà classés
+  const childLabels = new Set(Object.values(PARENTS).flat());
+
+  // Construire le HTML
   let html = '<option value="">\u2014 \u00c0 affecter \u2014</option>';
-  GROUPS.forEach(g => {
-    const cats = _plCats.filter(c => g.match.some(m => c.label.toLowerCase().includes(m.toLowerCase())) && !used.has(c.id));
+
+  // 1. Groupes avec hiérarchie
+  const FAMILY_ICONS = {
+    'Achats-revente':'\uD83C\uDF7A',
+    'Sous-traitance & Prestations':'\uD83D\uDC77',
+    'Locaux & frais':'\uD83C\uDFE0',
+    'Assurances':'\uD83D\uDEE1\uFE0F',
+  };
+  Object.entries(PARENTS).forEach(([parentLabel, childrenLabels]) => {
+    const parent = byLabel[parentLabel];
+    const children = childrenLabels.map(l => byLabel[l] || byLabel[l.trim()]).filter(Boolean);
+    if (!parent && !children.length) return;
+    const icon = FAMILY_ICONS[parentLabel] || '\uD83D\uDCCC';
+    html += `<optgroup label="${icon} ${parentLabel}">`;
+    if (parent) html += `<option value="${parent.id}" ${parent.id==currentId?'selected':''}>${parent.label}</option>`;
+    children.forEach(c => {
+      html += `<option value="${c.id}" ${c.id==currentId?'selected':''}>\u00a0\u00a0\u21b3 ${c.label}</option>`;
+    });
+    html += '</optgroup>';
+  });
+
+  // 2. Autres catégories (ni parent ni enfant)
+  const OTHER_GROUPS = [
+    {icon:'\u26A1', label:'Energie', match:['Enedis','eau','lectricit']},
+    {icon:'\uD83C\uDFD7\uFE0F', label:'Investissements', match:['Investissements','Gros \u00e9quipement','quipements +']},
+    {icon:'\uD83D\uDCBB', label:'Digital & Comm.', match:['Logiciel','Services Web','Communication','T\u00e9l\u00e9phone','Licence']},
+    {icon:'\uD83D\uDCC4', label:'Comptable & Taxes', match:['Honoraire','Frais bancaires','Impots','Sacem','D\u00e9placement','Restauration']},
+    {icon:'\uD83D\uDC64', label:'RH', match:['Salaires']},
+  ];
+  const usedIds = new Set();
+  // Marquer les ids déjà affichés
+  Object.entries(PARENTS).forEach(([pl, children]) => {
+    const p = byLabel[pl]; if(p) usedIds.add(p.id);
+    children.forEach(cl => { const c = byLabel[cl]; if(c) usedIds.add(c.id); });
+  });
+
+  OTHER_GROUPS.forEach(g => {
+    const cats = (_plCats||[]).filter(c => !usedIds.has(c.id) && c.direction !== 'cash_in' && g.match.some(m => c.label.toLowerCase().includes(m.toLowerCase())));
     if (!cats.length) return;
-    cats.forEach(c => used.add(c.id));
+    cats.forEach(c => usedIds.add(c.id));
     html += `<optgroup label="${g.icon} ${g.label}">`;
     html += cats.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
     html += '</optgroup>';
   });
+
   // Reste non classé
-  const rest = _plCats.filter(c => !used.has(c.id) && c.direction !== 'cash_in');
+  const rest = (_plCats||[]).filter(c => !usedIds.has(c.id) && c.direction !== 'cash_in');
   if (rest.length) {
     html += '<optgroup label="\uD83D\uDCCC Autres">';
     html += rest.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
     html += '</optgroup>';
   }
+
   sel.innerHTML = html;
 }
 
