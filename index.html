@@ -166,7 +166,7 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v3.0 == */
+/* == Layout charge row v3.0.1 == */
 .charge-row { display:flex; align-items:center; gap:12px; }
 .charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.0</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.0.1</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.0</div>
+      <div class="header-version">v3.0.1</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -952,7 +952,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.0
+// FOURNISSEURS — v3.0.1
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', irregulier: 'Variable',
@@ -1082,6 +1082,28 @@ function fournisseurRow(c) {
       '<button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')" style="opacity:0.5">&#10005;</button>' +
     '</div>' +
     '</div>';
+}
+
+
+// ── Navigation onglets ──
+window._setTab = (tab) => {
+  document.getElementById('tabContentDashboard').style.display = tab==='dashboard' ? '' : 'none';
+  document.getElementById('tabContentCharges').style.display  = tab==='charges'   ? '' : 'none';
+  document.getElementById('tabDashboard').classList.toggle('active', tab==='dashboard');
+  document.getElementById('tabCharges').classList.toggle('active',   tab==='charges');
+};
+
+// ── Chargement des catégories PL ──
+async function loadPLCategories() {
+  try {
+    const tok = await auth.currentUser.getIdToken();
+    const d = await fetch(PROXY+'/categories?limit=100', {headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
+    _plCats = (d.items||[])
+      .filter(c => c.direction === 'cash_out')
+      .sort((a,b) => a.label.localeCompare(b.label));
+    set(ref(db,'tresorerie/pl_categories'), Object.fromEntries(_plCats.map(c=>['c'+c.id,{id:c.id,label:c.label}])));
+    _fillCatSelect(document.getElementById('cmCategory'), null);
+  } catch(e) { console.warn('cats:', e); }
 }
 
 window._openCharge = id => {
@@ -1214,6 +1236,112 @@ document.addEventListener('toggle', e => {
     if(arrow) arrow.style.transform=e.target.open?'rotate(90deg)':'rotate(0deg)';
   }
 }, true);
+
+
+function _fillCatSelect(sel, currentId) {
+  if (!sel) return;
+
+  // Hiérarchie parent → enfants (basée sur Familles analytiques PL)
+  const PARENTS = {
+    'Achats-revente':              ['Achats Snack','Achats boissons','Achats Bar/boissons'],
+    'Sous-traitance & Prestations':['Sous-traitance BAR','Sous-traitance Activi\u00e9ts','Sous-traitance Activit\u00e9s','Sous-traitance Studios'],
+    'Locaux & frais':              ['Locaux (tous les frais)','Equipement entretien','Petits \u00c9quipements -500\u20ac'],
+    'Assurances':                  ['Assurance des locaux','Assurance RC','Assurarance bancaires'],
+  };
+  // Construire map label→id
+  const byLabel = {};
+  (_plCats||[]).forEach(c => { byLabel[c.label.trim()] = c; });
+
+  // Enfants déjà classés
+  const childLabels = new Set(Object.values(PARENTS).flat());
+
+  // Construire le HTML
+  let html = '<option value="">\u2014 \u00c0 affecter \u2014</option>';
+
+  // 1. Groupes avec hiérarchie
+  const FAMILY_ICONS = {
+    'Achats-revente':'\uD83C\uDF7A',
+    'Sous-traitance & Prestations':'\uD83D\uDC77',
+    'Locaux & frais':'\uD83C\uDFE0',
+    'Assurances':'\uD83D\uDEE1\uFE0F',
+  };
+  Object.entries(PARENTS).forEach(([parentLabel, childrenLabels]) => {
+    const parent = byLabel[parentLabel];
+    const children = childrenLabels.map(l => byLabel[l] || byLabel[l.trim()]).filter(Boolean);
+    if (!parent && !children.length) return;
+    const icon = FAMILY_ICONS[parentLabel] || '\uD83D\uDCCC';
+    html += `<optgroup label="${icon} ${parentLabel}">`;
+    if (parent) html += `<option value="${parent.id}" ${parent.id==currentId?'selected':''}>${parent.label}</option>`;
+    children.forEach(c => {
+      html += `<option value="${c.id}" ${c.id==currentId?'selected':''}>\u00a0\u00a0\u21b3 ${c.label}</option>`;
+    });
+    html += '</optgroup>';
+  });
+
+  // 2. Autres catégories (ni parent ni enfant)
+  const OTHER_GROUPS = [
+    {icon:'\u26A1', label:'Energie', match:['Enedis','eau','lectricit']},
+    {icon:'\uD83C\uDFD7\uFE0F', label:'Investissements', match:['Investissements','Gros \u00e9quipement','quipements +']},
+    {icon:'\uD83D\uDCBB', label:'Digital & Comm.', match:['Logiciel','Services Web','Communication','T\u00e9l\u00e9phone','Licence']},
+    {icon:'\uD83D\uDCC4', label:'Comptable & Taxes', match:['Honoraire','Frais bancaires','Impots','Sacem','D\u00e9placement','Restauration']},
+    {icon:'\uD83D\uDC64', label:'RH', match:['Salaires']},
+  ];
+  const usedIds = new Set();
+  // Marquer les ids déjà affichés
+  Object.entries(PARENTS).forEach(([pl, children]) => {
+    const p = byLabel[pl]; if(p) usedIds.add(p.id);
+    children.forEach(cl => { const c = byLabel[cl]; if(c) usedIds.add(c.id); });
+  });
+
+  OTHER_GROUPS.forEach(g => {
+    const cats = (_plCats||[]).filter(c => !usedIds.has(c.id) && c.direction !== 'cash_in' && g.match.some(m => c.label.toLowerCase().includes(m.toLowerCase())));
+    if (!cats.length) return;
+    cats.forEach(c => usedIds.add(c.id));
+    html += `<optgroup label="${g.icon} ${g.label}">`;
+    html += cats.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
+    html += '</optgroup>';
+  });
+
+  // Reste non classé
+  const rest = (_plCats||[]).filter(c => !usedIds.has(c.id) && c.direction !== 'cash_in');
+  if (rest.length) {
+    html += '<optgroup label="\uD83D\uDCCC Autres">';
+    html += rest.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
+    html += '</optgroup>';
+  }
+
+  sel.innerHTML = html;
+}
+
+// Ecrire la catégorie vers Pennylane pour toutes les factures du fournisseur
+async function _writeCatToPennylane(chargeName, catId) {
+  if (!catId || !chargeName) return;
+  try {
+    const tok = await auth.currentUser.getIdToken();
+    // Récupérer TOUTES les factures du fournisseur (sans limite de date)
+    let all=[], cursor=null, iter=0;
+    const extract=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1].trim():(l||'').substring(0,30);};
+    while(iter<20){
+      let url=PROXY+'?endpoint=supplier_invoices&limit=100';
+      if(cursor) url+='&cursor='+encodeURIComponent(cursor);
+      const d=await fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
+      all=all.concat((d.items||[]).filter(i=>extract(i.label)===chargeName));
+      iter++;
+      if(!d.has_more||!d.next_cursor) break;
+      cursor=d.next_cursor;
+    }
+    // Écrire la catégorie sur chaque facture trouvée
+    const body = [{id: parseInt(catId), weight: '1'}];
+    for(const inv of all) {
+      await fetch(`${PROXY}/supplier_invoices/${inv.id}/categories`, {
+        method: 'PUT',
+        headers: {'Authorization':'Bearer '+tok, 'Content-Type':'application/json'},
+        body: JSON.stringify(body)
+      });
+    }
+    console.log('[PL] Cat\u00e9gorie \u00e9crite sur', all.length, 'factures de', chargeName);
+  } catch(e) { console.warn('[PL] writeCat error:', e); }
+}
 
 
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
