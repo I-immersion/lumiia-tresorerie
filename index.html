@@ -973,7 +973,7 @@ function monthlyVal(c) {
 
 function renderCharges(charges) {
   // Totaux
-  const list = Object.values(charges);
+  const list = Object.values(charges||{});
   const active = list.filter(c => c.periodicity !== 'ponctuel');
   const total = active.reduce((s,c) => s + monthlyVal(c), 0);
   const badge = document.getElementById('chargesTotalBadge');
