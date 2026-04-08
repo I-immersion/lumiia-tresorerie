@@ -155,7 +155,8 @@
 .tab-badge{background:var(--warn);color:#000;border-radius:10px;padding:1px 7px;font-size:10px;font-weight:700;}
 
 /* == Boutons d'action charges (clairs) == */
-.charge-action-btns{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;}
+.charge-mid{flex:1;display:flex;align-items:center;gap:8px;}
+.charge-action-btns{display:flex;gap:6px;flex-shrink:0;flex-wrap:wrap;margin-left:auto;}
 .cab{border:none;border-radius:6px;padding:5px 10px;font-size:11px;font-family:'DM Sans',sans-serif;font-weight:600;cursor:pointer;transition:all .15s;white-space:nowrap;}
 .cab:hover{opacity:.85;transform:translateY(-1px);}
 .cab-confirm{background:rgba(74,222,128,0.15);color:var(--accent);border:1px solid rgba(74,222,128,0.3);}
@@ -165,9 +166,9 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v2.13 == */
-.charge-row { align-items: center; }
-.charge-info { min-width: 200px; }
+/* == Layout charge row v2.14 == */
+.charge-row { display:flex; align-items:center; gap:12px; }
+.charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
 .charge-meta { font-size: 11.5px; }
 .charge-right  { display: flex; align-items: center; gap: 10px; flex-shrink: 0; }
@@ -229,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.13</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.14</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -245,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.13</div>
+      <div class="header-version">v2.14</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1021,14 +1022,14 @@ function cRow(c, status) {
   const btns = status==='pending'
     ? '<button class="cab cab-confirm" onclick="window._confirmCharge(\'' + c.id + '\')">&#10003; R\u00e9current</button><button class="cab cab-reject" onclick="window._rejectCharge(\'' + c.id + '\')">Ponctuel</button><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>'
     : '<button class="cab cab-modify" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button><button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')">Supprimer</button>';
-  const catLabel = c.plCategoryLabel || c.category || '';
+  const catLabel = c.plCategoryLabel || (c.category && c.category !== 'autre' ? c.category : '') || '';
   const catBadge = catLabel
-    ? '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)">'+catLabel+'</span>'
+    ? '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)" title="Cat\u00e9gorie Pennylane">'+catLabel+'</span>'
     : '';
   const varBadge = (c.montantVariable || c.periodicity==='irregulier') ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">~ variable</span>' : '';
   return '<div class="charge-row '+status+'">'+
     '<div class="charge-icon">'+icon+'</div>'+
-    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.note?_ce(c.note):'')+det+'</div></div>'+
+    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.internalNote?_ce(c.internalNote):'')+det+'</div></div>'+
     '<div class="charge-mid">'+
       '<div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>\u00a0'+per+eq+'</small></div>'+
       catBadge+
@@ -1052,18 +1053,19 @@ window._openCharge = id => {
   const isAuto = c.source === 'auto';
   const nameInput = document.getElementById('cmName');
   const nameLabel = document.getElementById('cmNameLabel');
+  const amountInput = document.getElementById('cmAmount');
   if (isAuto) {
-    nameInput.style.opacity = '0.5'; nameInput.readOnly = true;
-    nameLabel.textContent = 'Nom (depuis Pennylane — non modifiable)';
+    nameInput.style.opacity='0.5'; nameInput.readOnly=true; nameLabel.textContent='';
+    amountInput.style.opacity='0.5'; amountInput.readOnly=true;
   } else {
-    nameInput.style.opacity = '1'; nameInput.readOnly = false;
-    nameLabel.textContent = 'Fournisseur';
+    nameInput.style.opacity='1'; nameInput.readOnly=false; nameLabel.textContent='Fournisseur';
+    amountInput.style.opacity='1'; amountInput.readOnly=false;
   }
   document.getElementById('cmName').value = c.name||'';
   document.getElementById('cmAmount').value = c.monthlyRef||'';
   document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
   _fillCatSelect(document.getElementById('cmCategory'), c.plCategoryId||null);
-  document.getElementById('cmNote').value = c.note||'';
+  document.getElementById('cmNote').value = c.internalNote||'';
   document.getElementById('cmComptable').value = c.plExternalRef||'';
   // variable géré automatiquement selon périodicité
   document.getElementById('chargesModal').classList.add('open');
@@ -1081,7 +1083,7 @@ window._saveCharge = async () => {
     name, monthlyRef:amount,
     periodicity:document.getElementById('cmPeriod').value,
     category:document.getElementById('cmCategory').value,
-    note:document.getElementById('cmNote').value.trim(),
+    internalNote:document.getElementById('cmNote').value.trim(),
     plCategoryId: plCatId,
     plCategoryLabel: plCatLabel,
     status:'confirmed', source:_eid?(_cd[_eid]?.source||'manual'):'manual',
@@ -1120,7 +1122,7 @@ window._syncCharges = async () => {
       const tots={};for(const i of items){const m=i.date.substring(0,7);tots[m]=(tots[m]||0)+i.amount;}
       const avg=Object.values(tots).reduce((a,b)=>a+b,0)/Object.values(tots).length;
       const nid='auto_'+name.replace(/[^a-zA-Z0-9]/g,'_').toLowerCase().substring(0,20)+'_'+Date.now();
-      await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{name,monthlyRef:parseFloat(avg.toFixed(2)),periodicity:'mensuel',category:'autre',note:months.length+' mois',status:'pending',source:'auto',monthsDetected:months.length,updatedAt:new Date().toISOString()});
+      await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{name,monthlyRef:parseFloat(avg.toFixed(2)),periodicity:'mensuel',category:'autre',status:'pending',source:'auto',monthsDetected:months.length,updatedAt:new Date().toISOString()});
       count++;
     }
     btn.textContent='\u2713 '+count+' nouvelle(s)';
