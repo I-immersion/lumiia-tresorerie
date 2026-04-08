@@ -166,7 +166,7 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v3.0.8 == */
+/* == Layout charge row v3.0.9 == */
 .charge-row { display:flex; align-items:center; gap:12px; }
 .charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.0.8</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.0.9</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.0.8</div>
+      <div class="header-version">v3.0.9</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -946,14 +946,17 @@ let _plCats = [];
 
 function initChargesModule() {
   onValue(ref(db,'tresorerie/charges_recurrentes'), snap => {
-    _cd = snap.val() || {};
+    const raw = snap.val() || {};
+    // Injecter l'ID Firebase dans chaque objet charge
+    _cd = {};
+    Object.entries(raw).forEach(([id, c]) => { _cd[id] = {...c, id}; });
     renderCharges(_cd);
   });
 }
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.0.8
+// FOURNISSEURS — v3.0.9
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', irregulier: 'Variable',
@@ -1149,9 +1152,8 @@ window._closeCharge = () => {
 };
 
 window._saveCharge = async () => {
-  const name = document.getElementById('cmName').value.trim();
-  const amount = parseFloat(document.getElementById('cmAmount').value);
-  if (!name) { alert('Nom requis'); return; }
+  const name = document.getElementById('cmName').value.trim() || (_eid ? (_cd[_eid]?.name||'') : '');
+  const amount = parseFloat(document.getElementById('cmAmount').value) || parseFloat(_cd[_eid]?.monthlyRef)||0;
   const catSel = document.getElementById('cmCategory');
   const plCatId = catSel.value ? parseInt(catSel.value) : null;
   const plCatLabel = catSel.value ? (catSel.options[catSel.selectedIndex]?.text||'').replace(/^\u00a0+[\u21b3]?\s*/,'') : '';
