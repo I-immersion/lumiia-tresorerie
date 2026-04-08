@@ -166,7 +166,7 @@
 .cab-modify{background:rgba(96,165,250,0.1);color:var(--info);border:1px solid rgba(96,165,250,0.25);}
 
 
-/* == Layout charge row v2.14 == */
+/* == Layout charge row v2.16 == */
 .charge-row { display:flex; align-items:center; gap:12px; }
 .charge-info { width:220px; flex-shrink:0; }
 .charge-name { font-size: 13.5px; }
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.14</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v2.16</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v2.14</div>
+      <div class="header-version">v2.16</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -404,11 +404,7 @@
         <option value="annuel">Une fois par an</option>
       </select>
     </div>
-    <div class="modal-field"><label>Cat&eacute;gorie Pennylane</label>
-      <select id="cmCategory">
-        <option value="">Chargement...</option>
-      </select>
-    </div>
+
     <div class="modal-field"><label>Note interne</label><input type="text" id="cmNote" placeholder="Ex : Contrat no..." /></div>
     <input type="hidden" id="cmVariable" value="false" />
     <div class="modal-field">
@@ -1022,14 +1018,14 @@ function cRow(c, status) {
   const btns = status==='pending'
     ? '<button class="cab cab-confirm" onclick="window._confirmCharge(\'' + c.id + '\')">&#10003; R\u00e9current</button><button class="cab cab-reject" onclick="window._rejectCharge(\'' + c.id + '\')">Ponctuel</button><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>'
     : '<button class="cab cab-modify" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button><button class="cab cab-delete" onclick="window._deleteCharge(\'' + c.id + '\')">Supprimer</button>';
-  const catLabel = c.plCategoryLabel || (c.category && c.category !== 'autre' ? c.category : '') || '';
+  const catLabel = c.plCategoryLabel || '';
   const catBadge = catLabel
-    ? '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)" title="Cat\u00e9gorie Pennylane">'+catLabel+'</span>'
-    : '';
+    ? '<span style="font-size:11px;font-weight:600;padding:3px 10px;border-radius:6px;background:rgba(99,102,241,0.15);color:#818cf8;border:1px solid rgba(99,102,241,0.3)">'+catLabel+'</span>'
+    : '<span style="font-size:11px;padding:3px 10px;border-radius:6px;background:rgba(107,114,128,0.1);color:var(--muted2);border:1px solid var(--border)">\u00c0 affecter</span>';
   const varBadge = (c.montantVariable || c.periodicity==='irregulier') ? '<span style="font-size:10px;color:var(--warn);margin-left:4px">~ variable</span>' : '';
   return '<div class="charge-row '+status+'">'+
     '<div class="charge-icon">'+icon+'</div>'+
-    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.internalNote?_ce(c.internalNote):'')+det+'</div></div>'+
+    '<div class="charge-info"><div class="charge-name">'+_ce(c.name)+msrc+varBadge+'</div><div class="charge-meta">'+(c.internalNote?_ce(c.internalNote):'')+(c.lastInvoiceDate?'<span style="font-size:10px;color:var(--muted2)"> · '+c.lastInvoiceDate+(c.lastInvoiceNumber?' · N°'+c.lastInvoiceNumber:'')+'</span>':'')+</div></div>'+
     '<div class="charge-mid">'+
       '<div class="charge-amount">'+r.toFixed(2)+'\u00a0\u20ac<small>\u00a0'+per+eq+'</small></div>'+
       catBadge+
@@ -1122,7 +1118,8 @@ window._syncCharges = async () => {
       const tots={};for(const i of items){const m=i.date.substring(0,7);tots[m]=(tots[m]||0)+i.amount;}
       const avg=Object.values(tots).reduce((a,b)=>a+b,0)/Object.values(tots).length;
       const nid='auto_'+name.replace(/[^a-zA-Z0-9]/g,'_').toLowerCase().substring(0,20)+'_'+Date.now();
-      await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{name,monthlyRef:parseFloat(avg.toFixed(2)),periodicity:'mensuel',category:'autre',status:'pending',source:'auto',monthsDetected:months.length,updatedAt:new Date().toISOString()});
+      const lastInv = byS[name].sort((a,b)=>b.date.localeCompare(a.date))[0];
+      await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{name,monthlyRef:parseFloat(avg.toFixed(2)),periodicity:'mensuel',category:'autre',status:'pending',source:'auto',monthsDetected:months.length,lastInvoiceDate:lastInv?.date||'',lastInvoiceNumber:lastInv?.num||'',updatedAt:new Date().toISOString()});
       count++;
     }
     btn.textContent='\u2713 '+count+' nouvelle(s)';
@@ -1147,8 +1144,34 @@ async function loadPLCategories() {
 
 function _fillCatSelect(sel, currentId) {
   if (!sel) return;
-  sel.innerHTML = '<option value="">-- Sans cat\u00e9gorie --</option>'
-    + _plCats.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
+  const GROUPS = [
+    {icon:'\uD83C\uDF7A', label:'Achats bar', match:['Achats','revente','Snack','boisson','Restauration']},
+    {icon:'\uD83D\uDC77', label:'Sous-traitance', match:['Sous-traitance','Salaires']},
+    {icon:'\uD83C\uDFE0', label:'Locaux', match:['Loyer','Locaux','Equipement entretien']},
+    {icon:'\uD83D\uDEE1\uFE0F', label:'Assurances', match:['Assurance','Assur']},
+    {icon:'\u26A1', label:'Energie', match:['Enedis','eau','lectricit']},
+    {icon:'\uD83C\uDFD7\uFE0F', label:'Investissements', match:['Investissements','quipement']},
+    {icon:'\uD83D\uDCBB', label:'Digital & Comm.', match:['Logiciel','Services Web','Communication','T\u00e9l\u00e9phone','Licence']},
+    {icon:'\uD83D\uDCC4', label:'Comptable & Taxes', match:['Honoraire','Frais bancaires','Impots','Sacem','D\u00e9placement']},
+  ];
+  const used = new Set();
+  let html = '<option value="">\u2014 \u00c0 affecter \u2014</option>';
+  GROUPS.forEach(g => {
+    const cats = _plCats.filter(c => g.match.some(m => c.label.toLowerCase().includes(m.toLowerCase())) && !used.has(c.id));
+    if (!cats.length) return;
+    cats.forEach(c => used.add(c.id));
+    html += `<optgroup label="${g.icon} ${g.label}">`;
+    html += cats.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
+    html += '</optgroup>';
+  });
+  // Reste non classé
+  const rest = _plCats.filter(c => !used.has(c.id) && c.direction !== 'cash_in');
+  if (rest.length) {
+    html += '<optgroup label="\uD83D\uDCCC Autres">';
+    html += rest.map(c => `<option value="${c.id}" ${c.id==currentId?'selected':''}>${c.label}</option>`).join('');
+    html += '</optgroup>';
+  }
+  sel.innerHTML = html;
 }
 
 // Ecrire la catégorie vers Pennylane pour toutes les factures du fournisseur
