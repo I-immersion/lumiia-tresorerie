@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.0.9</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.10</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.0.9</div>
+      <div class="header-version">v3.10</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -431,6 +431,11 @@ let allTransactions = [];
 let allInvoiceRefs = new Set(); // refs des factures pour filtrer les transactions
 let currentPeriod = '1m';
 let currentDonutTab = 'out';
+let allInvoices = [];
+let allSuppliers = [];
+let invPage = 0;
+let supPage = 0;
+const INV_PAGE_SIZE = 20;
 
 // ─── UTILS ───
 function fmt(n, decimals=0) {
@@ -799,6 +804,9 @@ function renderTxList(txs) {
 
 // ─── KPIs & FACTURES ───
 function renderKPIs(invoices, suppliers) {
+  allInvoices = invoices;
+  allSuppliers = suppliers;
+
   const outstanding = invoices.filter(i=>i.status!=='paid');
   const late = invoices.filter(i=>i.status==='late');
   const totalOut = outstanding.reduce((s,i)=>s+parseFloat(i.amount),0);
@@ -815,55 +823,90 @@ function renderKPIs(invoices, suppliers) {
     az.innerHTML += `<div class="alert danger"><div><strong>${inv.invoice_number} \u2014 ${fmt(inv.amount)} en retard</strong><span>\u00c9ch\u00e9ance d\u00e9pass\u00e9e depuis ${daysFrom(inv.deadline)} jour${daysFrom(inv.deadline)>1?'s':''}.</span></div></div>`;
   });
 
-  // Factures clients (accordéon)
   document.getElementById('invSub').textContent = `${invoices.length} factures \u00b7 Pennylane`;
-  let invHtml = '';
-  if(invoices.length === 0) invHtml = '<div class="empty">Aucune facture</div>';
-  else invoices.slice(0,8).forEach(inv => {
-    const paid = inv.status==='paid';
-    const clientName = extractName(inv.label);
-        invHtml += `<div class="flux-item" style="padding:10px 20px"><div class="flux-left"><div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div><div>
-      ${clientName?`<div class="flux-name" style="color:var(--text);font-weight:600">${clientName}</div>`:''}
-      <div class="flux-date" style="color:var(--info)">${inv.invoice_number}${statusTag(inv)}</div>
-      <div class="flux-date">${shortDate(inv.date)}</div>
-    </div></div><div class="flux-amount ${paid?'positive':inv.status==='late'?'negative':''}">${fmt(inv.amount)}</div></div>`;
-  });
-  document.getElementById('invList').innerHTML = invHtml;
+  document.getElementById('supSub').textContent = `${suppliers.length} factures \u00b7 Pennylane`;
+  renderInvList(0);
+  renderSupList(0);
+}
 
-  // Fournisseurs avec 4 catégories
+function _paginationBar(page, total, pageSize, prevFn, nextFn) {
+  if(total <= pageSize) return '';
+  const totalPages = Math.ceil(total / pageSize);
+  const hasPrev = page > 0;
+  const hasNext = page < totalPages - 1;
+  return `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 20px;border-top:1px solid var(--border);background:var(--surface);">
+    <button onclick="${prevFn}" style="background:${hasPrev?'var(--surface2)':'transparent'};border:1px solid var(--border);border-radius:7px;color:${hasPrev?'var(--text)':'var(--muted)'};font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px;cursor:${hasPrev?'pointer':'default'};" ${hasPrev?'':' disabled'}>\u2190 Pr\u00e9c\u00e9dent</button>
+    <span style="font-size:11px;color:var(--muted2);">Page ${page+1} / ${totalPages}</span>
+    <button onclick="${nextFn}" style="background:${hasNext?'var(--surface2)':'transparent'};border:1px solid var(--border);border-radius:7px;color:${hasNext?'var(--text)':'var(--muted)'};font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px;cursor:${hasNext?'pointer':'default'};" ${hasNext?'':' disabled'}>Suivant \u2192</button>
+  </div>`;
+}
+
+function renderInvList(page) {
+  invPage = page;
+  const start = page * INV_PAGE_SIZE;
+  const items = allInvoices.slice(start, start + INV_PAGE_SIZE);
+  let html = '';
+  if(allInvoices.length === 0) {
+    html = '<div class="empty">Aucune facture</div>';
+  } else {
+    items.forEach(inv => {
+      const paid = inv.status==='paid';
+      const clientName = extractName(inv.label);
+      html += `<div class="flux-item" style="padding:10px 20px"><div class="flux-left"><div class="flux-icon" style="background:${paid?'rgba(74,222,128,.1)':'rgba(248,113,113,.1)'}">${paid?'\ud83d\udce5':'\ud83d\udcc4'}</div><div>
+        ${clientName?`<div class="flux-name" style="color:var(--text);font-weight:600">${clientName}</div>`:''}
+        <div class="flux-date" style="color:var(--info)">${inv.invoice_number}${statusTag(inv)}</div>
+        <div class="flux-date">${shortDate(inv.date)}</div>
+      </div></div><div class="flux-amount ${paid?'positive':inv.status==='late'?'negative':''}">${fmt(inv.amount)}</div></div>`;
+    });
+    html += _paginationBar(page, allInvoices.length, INV_PAGE_SIZE, "window._invPage(invPage-1)", "window._invPage(invPage+1)");
+  }
+  document.getElementById('invList').innerHTML = html;
+}
+window._invPage = function(p) {
+  const totalPages = Math.ceil(allInvoices.length / INV_PAGE_SIZE);
+  if(p < 0 || p >= totalPages) return;
+  renderInvList(p);
+};
+
+function renderSupList(page) {
+  supPage = page;
+  const start = page * INV_PAGE_SIZE;
+  const items = allSuppliers.slice(start, start + INV_PAGE_SIZE);
   const catOrder = ['Achats revente','Charges','Prestataires','Fonctionnement'];
   const catGroups = {};
   catOrder.forEach(c => catGroups[c] = []);
-  suppliers.forEach(sup => {
+  items.forEach(sup => {
     const { cat } = categorizeSupplier(sup.label);
     if(catGroups[cat]) catGroups[cat].push(sup);
     else catGroups['Prestataires'].push(sup);
   });
-
-  document.getElementById('supSub').textContent = `${suppliers.length} factures \u00b7 Pennylane`;
-  let supHtml = '';
+  let html = '';
   catOrder.forEach(catName => {
-    const items = catGroups[catName];
-    if(!items.length) return;
+    const grpItems = catGroups[catName];
+    if(!grpItems.length) return;
     const catInfo = categorizeSupplier(catName === 'Achats revente' ? 'INTERMARCHE' : catName === 'Charges' ? 'EDF' : catName === 'Fonctionnement' ? 'RUDASO' : 'service');
-    const catTotal = items.reduce((s,i)=>s+parseFloat(i.amount),0);
-    supHtml += `<div class="cat-group">
-      <div class="cat-group-header">
-        <span>${catInfo.icon} ${catName}</span>
-        <span class="cat-group-total">${fmt(catTotal)}</span>
-      </div>`;
-    items.forEach(sup => {
+    const catTotal = grpItems.reduce((s,i)=>s+parseFloat(i.amount),0);
+    html += `<div class="cat-group"><div class="cat-group-header"><span>${catInfo.icon} ${catName}</span><span class="cat-group-total">${fmt(catTotal)}</span></div>`;
+    grpItems.forEach(sup => {
       const supName = extractName(sup.label);
-          supHtml += `<div class="flux-item" style="padding:9px 20px"><div class="flux-left"><div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div><div>
+      html += `<div class="flux-item" style="padding:9px 20px"><div class="flux-left"><div class="flux-icon" style="background:rgba(251,191,36,.08)">\ud83d\uddd2</div><div>
         ${supName?`<div class="flux-name" style="color:var(--text);font-weight:600">${supName}</div>`:''}
         <div class="flux-date" style="color:var(--warn)">${sup.invoice_number||'Facture'}</div>
         <div class="flux-date">${shortDate(sup.date)}</div>
       </div></div><div class="flux-amount negative">\u2212${fmt(sup.amount)}</div></div>`;
-    supHtml += `</div>`;
+    });
+    html += `</div>`;
   });
-  });
-  document.getElementById('supList').innerHTML = supHtml || '<div class="empty">Aucune charge</div>';
+  html += _paginationBar(page, allSuppliers.length, INV_PAGE_SIZE, "window._supPage(supPage-1)", "window._supPage(supPage+1)");
+  document.getElementById('supList').innerHTML = html || '<div class="empty">Aucune charge</div>';
 }
+window._supPage = function(p) {
+  const totalPages = Math.ceil(allSuppliers.length / INV_PAGE_SIZE);
+  if(p < 0 || p >= totalPages) return;
+  renderSupList(p);
+};
+
+
 
 // ─── AUTH ───
 const loginScreen = document.getElementById('loginScreen');
@@ -894,8 +937,8 @@ async function load() {
     const [banksRes, txRes, invRes, supRes] = await Promise.all([
       fetch(`${PROXY}/bank_accounts`,{headers:h}),
       fetch(`${PROXY}/transactions?limit=100`,{headers:h}),
-      fetch(`${PROXY}/customer_invoices?limit=10`,{headers:h}),
-      fetch(`${PROXY}/supplier_invoices?limit=8`,{headers:h}),
+      fetch(`${PROXY}/customer_invoices?limit=100`,{headers:h}),
+      fetch(`${PROXY}/supplier_invoices?limit=100`,{headers:h}),
     ]);
 
     const banks = (await banksRes.json()).items || [];
@@ -956,7 +999,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.0.9
+// FOURNISSEURS — v3.10
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', irregulier: 'Variable',
