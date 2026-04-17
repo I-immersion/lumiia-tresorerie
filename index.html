@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.14</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.15</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.14</div>
+      <div class="header-version">v3.15</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -386,6 +386,10 @@
   </div>
 </div>
 
+<div id="invPopup" style="display:none;position:fixed;z-index:3000;background:var(--surface);border:1px solid rgba(255,255,255,0.12);border-radius:12px;box-shadow:0 8px 32px rgba(0,0,0,.6);overflow:hidden;pointer-events:none">
+  <div id="invPopupInfo" style="padding:8px 12px;font-size:11px;color:var(--muted2);border-bottom:1px solid var(--border)"></div>
+  <iframe id="invPopupFrame" style="width:420px;height:540px;border:none;display:block"></iframe>
+</div>
 <div id="chargesModal">
   <div class="charges-modal-box">
     <div id="chargesModalTitle" style="font-size:12px;color:var(--muted2);margin-bottom:10px;min-height:14px;text-transform:uppercase;letter-spacing:.06em"></div>
@@ -1041,7 +1045,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.14
+// FOURNISSEURS — v3.15
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', irregulier: 'Variable',
@@ -1164,6 +1168,15 @@ function fournisseurRow(c) {
     ? '<span style="font-size:10px;color:var(--muted2)"> \u00b7 ' + c.lastInvoiceDate + (c.lastInvoiceNumber?' \u00b7 N\u00b0'+_ce(c.lastInvoiceNumber):'') + '</span>'
     : (c.monthsDetected ? '<span style="font-size:10px;color:var(--muted2)"> \u00b7 ' + c.monthsDetected + ' factures</span>' : '');
   const invoiceCountStr = c.invoiceCount ? '<span style="font-size:10px;color:var(--muted2);padding:2px 6px;background:rgba(255,255,255,0.05);border-radius:4px">' + c.invoiceCount + ' factures</span>' : '';
+  const lastAmt = parseFloat(c.lastInvoiceAmount)||0;
+  const fmtAmt = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(n);
+  const lastAmtStr = lastAmt ? '<span style="font-size:13px;font-weight:600;color:var(--text)">' + fmtAmt(lastAmt) + '</span>' : '';
+  const safeUrl = (c.lastInvoiceUrl||'').replace(/"/g,'&quot;');
+  const safeNum = _ce(c.lastInvoiceNumber||'');
+  const safeDate = _ce(c.lastInvoiceDate||'');
+  const pdfBtn = c.lastInvoiceUrl
+    ? '<button class="cab" data-inv-url="'+safeUrl+'" data-inv-num="'+safeNum+'" data-inv-date="'+safeDate+'" data-inv-amt="'+lastAmt+'" onmouseenter="window._showInvPopup(event,this)" onmouseleave="window._hideInvPopup()" onclick="event.stopPropagation();window.open(this.dataset.invUrl,\'_blank\')" style="font-size:11px;padding:3px 8px;border-radius:5px;background:rgba(96,165,250,0.12);color:var(--info);border:1px solid rgba(96,165,250,0.2)">PDF \u2197</button>'
+    : '';
 
   return '<div class="charge-row ' + (needsAction?'pending':'confirmed') + '" onclick="window._openCharge(\'' + c.id + '\')" style="cursor:pointer" >' +
     '<div class="charge-icon">' + (CEMOJI[c.category]||'\uD83D\uDCCC') + '</div>' +
@@ -1172,7 +1185,7 @@ function fournisseurRow(c) {
       '<div class="charge-meta">' + invInfo + '</div>' +
     '</div>' +
     '<div class="charge-mid">' +
-      '<div class="charge-amount">' + invoiceCountStr + '</div>' +
+      '<div class="charge-amount" style="display:flex;align-items:center;gap:8px">' + lastAmtStr + invoiceCountStr + pdfBtn + '</div>' +
       catBadge + autoBadge + periodBadge +
     '</div>' +
     '<div class="charge-action-btns"><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>' +
@@ -1181,6 +1194,40 @@ function fournisseurRow(c) {
     '</div>';
 }
 
+
+// ── PDF Popup ──
+let _popupTimer = null;
+window._showInvPopup = (evt, btn) => {
+  clearTimeout(_popupTimer);
+  const popup = document.getElementById('invPopup');
+  const frame = document.getElementById('invPopupFrame');
+  const info  = document.getElementById('invPopupInfo');
+  const url   = btn.dataset.invUrl;
+  const num   = btn.dataset.invNum;
+  const date  = btn.dataset.invDate;
+  const amt   = parseFloat(btn.dataset.invAmt)||0;
+  const fmtA  = new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(amt);
+  info.textContent = date + (num?' · N°'+num:'') + ' · ' + fmtA;
+  if(frame.src !== url) frame.src = url;
+  // Positionner le popup à droite du bouton
+  const r = btn.getBoundingClientRect();
+  const pw = 436, ph = 580;
+  let left = r.right + 10;
+  let top  = r.top - 40;
+  if(left + pw > window.innerWidth)  left = r.left - pw - 10;
+  if(top  + ph > window.innerHeight) top  = window.innerHeight - ph - 10;
+  if(top < 10) top = 10;
+  popup.style.left = left + 'px';
+  popup.style.top  = top  + 'px';
+  popup.style.display = 'block';
+};
+window._hideInvPopup = () => {
+  _popupTimer = setTimeout(() => {
+    document.getElementById('invPopup').style.display = 'none';
+  }, 200);
+};
+document.getElementById('invPopup').addEventListener('mouseenter', () => clearTimeout(_popupTimer));
+document.getElementById('invPopup').addEventListener('mouseleave', () => window._hideInvPopup());
 
 // ── Navigation onglets ──
 window._setTab = (tab) => {
@@ -1336,7 +1383,7 @@ window._syncCharges = async () => {
     for(const i of all){
       const n=extr(i.label);
       if(!byS[n])byS[n]=[];
-      byS[n].push({date:i.date,amount:parseFloat(i.amount)||0,num:i.invoice_number||''});
+      byS[n].push({date:i.date,amount:parseFloat(i.amount)||0,num:i.invoice_number||'',url:i.public_file_url||''});
     }
     let count=0;
     for(const [name,items] of Object.entries(byS)){
@@ -1356,6 +1403,8 @@ window._syncCharges = async () => {
           monthsCount:months.length,
           lastInvoiceDate:lastInv?.date||'',
           lastInvoiceNumber:lastInv?.num||'',
+          lastInvoiceAmount:lastInv?.amount||0,
+          lastInvoiceUrl:lastInv?.url||'',
           updatedAt:new Date().toISOString()
         });
         if(ev.autoPropagation && ev.plCategoryId) _writeCatToPennylane(name, ev.plCategoryId);
@@ -1368,6 +1417,8 @@ window._syncCharges = async () => {
           monthsCount:months.length,
           lastInvoiceDate:lastInv?.date||'',
           lastInvoiceNumber:lastInv?.num||'',
+          lastInvoiceAmount:lastInv?.amount||0,
+          lastInvoiceUrl:lastInv?.url||'',
           autoPropagation:false,
           updatedAt:new Date().toISOString()
         });
