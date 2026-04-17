@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.11</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.12</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.11</div>
+      <div class="header-version">v3.12</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -381,6 +381,7 @@
         <button class="btn-add-charge" onclick="window._openCharge(null)">+ Ajouter</button>
       </div>
     </div>
+    <div id="syncSummary" style="font-size:11px;color:var(--muted2);padding:6px 0 2px;text-align:right"></div>
     <div id="chargesByMonth"></div>
   </div>
 </div>
@@ -1040,7 +1041,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.11
+// FOURNISSEURS — v3.12
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', irregulier: 'Variable',
@@ -1283,6 +1284,12 @@ window._syncCharges = async () => {
       cursor=d.next_cursor;
       if(iter%5===0) btn.textContent='\u23f3 '+all.length+'\u2026';
     }
+
+    // Totaux pour réconciliation avec PL
+    const totalPLInvoices = all.length;
+    const totalPLAmount = all.reduce((s,i)=>s+(parseFloat(i.amount)||0),0);
+    const oldestDate = all.reduce((min,i)=>(!min||i.date<min)?i.date:min, null);
+
     const extr=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1].trim():(l||'').substring(0,40);};
     const byS={};
     for(const i of all){
@@ -1297,25 +1304,27 @@ window._syncCharges = async () => {
       const tots={};
       for(const i of items){const m=i.date.substring(0,7);tots[m]=(tots[m]||0)+i.amount;}
       const avg=Object.values(tots).reduce((a,b)=>a+b,0)/Object.values(tots).length;
-      const lastInv=items.sort((a,b)=>b.date.localeCompare(a.date))[0];
-      const existing=Object.entries(_cd).find(([k,v])=>v.name===name);
+      const lastInv=items.slice().sort((a,b)=>b.date.localeCompare(a.date))[0];
+      // Comparaison insensible à la casse
+      const existing=Object.entries(_cd).find(([k,v])=>(v.name||'').trim().toUpperCase()===name.trim().toUpperCase());
       if(existing){
         const [eid,ev]=existing;
         await update(ref(db,'tresorerie/charges_recurrentes/'+eid),{
           monthlyRef:parseFloat(avg.toFixed(2)),
-          monthsDetected:items.length,
+          invoiceCount:items.length,
+          monthsCount:months.length,
           lastInvoiceDate:lastInv?.date||'',
           lastInvoiceNumber:lastInv?.num||'',
           updatedAt:new Date().toISOString()
         });
-        // Propagation auto si activée
         if(ev.autoPropagation && ev.plCategoryId) _writeCatToPennylane(name, ev.plCategoryId);
       } else if(months.length>=1){
         const nid='auto_'+name.replace(/[^a-zA-Z0-9]/g,'_').toLowerCase().substring(0,25)+'_'+Date.now();
         await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{
           name, monthlyRef:parseFloat(avg.toFixed(2)),
           periodicity:'', category:'autre',
-          source:'auto', monthsDetected:items.length,
+          source:'auto', invoiceCount:items.length,
+          monthsCount:months.length,
           lastInvoiceDate:lastInv?.date||'',
           lastInvoiceNumber:lastInv?.num||'',
           autoPropagation:false,
@@ -1324,10 +1333,19 @@ window._syncCharges = async () => {
         count++;
       }
     }
-    btn.textContent='\u2713 '+count+' nouveau(x)';
-    setTimeout(()=>{btn.textContent='\u21bb Scanner PL';btn.disabled=false;},3000);
+
+    // Afficher le récapitulatif de réconciliation
+    const amtFmt = new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(totalPLAmount);
+    const dateStr = oldestDate ? new Date(oldestDate).toLocaleDateString('fr-FR',{day:'numeric',month:'short',year:'numeric'}) : '';
+    const summary = `${totalPLInvoices} factures \u00b7 ${amtFmt} \u00b7 depuis ${dateStr}`;
+    const syncInfo = document.getElementById('syncSummary');
+    if(syncInfo) syncInfo.textContent = summary;
+
+    btn.textContent='\u2713 '+(count?count+' nouveau(x) \u00b7 ':'')+totalPLInvoices+' factures';
+    setTimeout(()=>{btn.textContent='\u21bb Scanner PL';btn.disabled=false;},5000);
   } catch(e){btn.textContent='\u2717 Erreur';btn.disabled=false;console.error(e);}
 };
+
 
 window._showIgnored = () => {};
 
