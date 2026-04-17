@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.17</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.19</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.17</div>
+      <div class="header-version">v3.19</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -442,6 +442,7 @@ const PROXY = 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane';
 
 // ─── STATE ───
 let allTransactions = [];
+const _loadedInvoices = {};
 let allInvoiceRefs = new Set();
 let currentPeriod = '3m';
 let currentDonutTab = 'out';
@@ -1046,7 +1047,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.17
+// FOURNISSEURS — v3.19
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1197,6 +1198,38 @@ function fournisseurRow(c) {
 }
 
 
+// ── Exclusion factures ──
+window._excludeInvoice = async (invId, chargeId) => {
+  const inv = _loadedInvoices[String(invId)] || {};
+  const invDate = inv.date||'', invNum = inv.invoice_number||'', invAmt = inv.amount||0, invUrl = inv.public_file_url||'';
+  if(!chargeId || !invId) return;
+  const c = _cd[chargeId] || {};
+  const current = c.excludedInvoiceIds || [];
+  if(current.map(String).includes(String(invId))) return;
+  // 1. Exclure de l'entrée actuelle
+  await update(ref(db,'tresorerie/charges_recurrentes/'+chargeId),{excludedInvoiceIds:[...current,String(invId)]});
+  // 2. Créer une nouvelle entrée "à réaffecter" pour cette facture
+  const newName = (c.name||'Fournisseur') + ' — à réaffecter';
+  const nid = 'split_'+String(invId)+'_'+Date.now();
+  await set(ref(db,'tresorerie/charges_recurrentes/'+nid),{
+    name: newName,
+    source: 'split',
+    periodicity: '',
+    lastInvoiceDate: invDate||'',
+    lastInvoiceNumber: invNum||'',
+    lastInvoiceAmount: parseFloat(invAmt)||0,
+    lastInvoiceUrl: invUrl||'',
+    pinnedInvoiceId: String(invId),
+    monthlyRef: parseFloat(invAmt)||0,
+    autoPropagation: false,
+    updatedAt: new Date().toISOString()
+  });
+};
+window._clearExcluded = async (chargeId) => {
+  if(!chargeId) return;
+  await update(ref(db, 'tresorerie/charges_recurrentes/' + chargeId), { excludedInvoiceIds: [] });
+};
+
 // ── PDF Popup ──
 let _popupTimer = null;
 window._showInvPopup = (evt, btn) => {
@@ -1290,29 +1323,36 @@ window._openCharge = async id => {
         if(!d.has_more||!d.next_cursor||all.length>=20) break;
         cursor=d.next_cursor;
       }
-      // Trier par date desc, garder les 5 dernières
+      // Trier par date desc, exclure les IDs blacklistés
       all.sort((a,b)=>b.date.localeCompare(a.date));
-      const last5 = all.slice(0,5);
-      if(!last5.length){
-        invDiv.innerHTML='<div style="font-size:11px;color:var(--muted2)">Aucune facture trouv\u00e9e dans PL</div>';
-        return;
-      }
-      const fmt2 = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(parseFloat(n));
-      let html='<div style="font-size:10.5px;color:var(--muted2);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Derni\u00e8res factures Pennylane</div>';
-      last5.forEach(inv => {
-        const url = inv.public_file_url || ('https://app.pennylane.com/companies/22905074/supplier_invoices/'+inv.id);
-        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">'
-          +'<div style="font-size:12px">'
-          +'<span style="color:var(--muted2)">' + inv.date + '</span>'
-          +' <span style="color:var(--text)">' + (inv.invoice_number||'—') + '</span>'
-          +'</div>'
-          +'<div style="display:flex;align-items:center;gap:8px">'
-          +'<span style="font-size:12px;font-weight:600;color:var(--warn)">' + fmt2(inv.amount) + '</span>'
-          +'<a href="'+url+'" target="_blank" style="font-size:11px;padding:3px 8px;border-radius:5px;background:rgba(96,165,250,0.12);color:var(--info);border:1px solid rgba(96,165,250,0.2);text-decoration:none;white-space:nowrap">Ouvrir \u2197</a>'
-          +'</div>'
-          +'</div>';
-      });
-      invDiv.innerHTML = html;
+      const excluded = new Set((c.excludedInvoiceIds||[]).map(String));
+      const visible = all.filter(i=>!excluded.has(String(i.id))).slice(0,8);
+      visible.forEach(i => { _loadedInvoices[String(i.id)] = i; });
+      const renderInvList = () => {
+        if(!visible.length && !excluded.size){
+          invDiv.innerHTML='<div style="font-size:11px;color:var(--muted2)">Aucune facture trouv\u00e9e dans PL</div>';
+          return;
+        }
+        const fmt2 = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(parseFloat(n));
+        let html='<div style="font-size:10.5px;color:var(--muted2);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Factures associ\u00e9es \u00b7 <span style="font-weight:400">' + all.length + ' au total</span></div>';
+        visible.forEach(inv => {
+          const url = inv.public_file_url || ('https://app.pennylane.com/companies/22905074/supplier_invoices/'+inv.id);
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">'
+            +'<div style="font-size:12px">'
+            +'<span style="color:var(--muted2)">' + inv.date + '</span>'
+            +' <span style="color:var(--text)">' + (inv.invoice_number||'—') + '</span>'
+            +'</div>'
+            +'<div style="display:flex;align-items:center;gap:6px">'
+            +'<span style="font-size:12px;font-weight:600;color:var(--warn)">' + fmt2(inv.amount) + '</span>'
+            +'<a href="'+url+'" target="_blank" style="font-size:11px;padding:3px 8px;border-radius:5px;background:rgba(96,165,250,0.12);color:var(--info);border:1px solid rgba(96,165,250,0.2);text-decoration:none;white-space:nowrap">PDF \u2197</a>'
+            +'<button onclick="event.stopPropagation();window._excludeInvoice(\'' + inv.id + '\',\'' + id + '\')" style="background:rgba(248,113,113,0.08);border:1px solid rgba(248,113,113,0.2);border-radius:5px;color:var(--danger);font-size:11px;padding:3px 7px;cursor:pointer" title="Exclure et r\u00e9affecter">\u2715</button>'
+            +'</div>'
+            +'</div>';
+        });
+        if(excluded.size) html += '<div style="font-size:10px;color:var(--muted2);margin-top:6px">'+excluded.size+' facture(s) exclue(s) — <span style="cursor:pointer;text-decoration:underline" onclick="window._clearExcluded(\''+id+'\')">r\u00e9tablir</span></div>';
+        invDiv.innerHTML = html;
+      };
+      renderInvList();
     } catch(e) {
       invDiv.innerHTML = '<div style="font-size:11px;color:var(--danger)">Erreur chargement factures</div>';
     }
