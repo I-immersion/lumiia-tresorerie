@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.13</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.14</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.13</div>
+      <div class="header-version">v3.14</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -390,9 +390,9 @@
   <div class="charges-modal-box">
     <div id="chargesModalTitle" style="font-size:12px;color:var(--muted2);margin-bottom:10px;min-height:14px;text-transform:uppercase;letter-spacing:.06em"></div>
     <div style="display:flex;gap:8px;margin-bottom:10px">
-      <input type="text" id="cmName" placeholder="Fournisseur" style="flex:2;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
-      <input type="number" id="cmAmount" placeholder="Montant €" step="0.01" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
+      <input type="text" id="cmName" placeholder="Fournisseur" style="flex:1;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none" />
     </div>
+    <div id="cmInvoices" style="margin-bottom:12px;min-height:32px"></div>
     <select id="cmCategory" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:10px;display:block">
       <option value="">Chargement...</option>
     </select>
@@ -1041,7 +1041,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.13
+// FOURNISSEURS — v3.14
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', irregulier: 'Variable',
@@ -1163,8 +1163,7 @@ function fournisseurRow(c) {
   const invInfo = c.lastInvoiceDate
     ? '<span style="font-size:10px;color:var(--muted2)"> \u00b7 ' + c.lastInvoiceDate + (c.lastInvoiceNumber?' \u00b7 N\u00b0'+_ce(c.lastInvoiceNumber):'') + '</span>'
     : (c.monthsDetected ? '<span style="font-size:10px;color:var(--muted2)"> \u00b7 ' + c.monthsDetected + ' factures</span>' : '');
-  const amount = parseFloat(c.monthlyRef)||0;
-  const amtStr = amount ? amount.toFixed(2) + '\u00a0\u20ac' + (c.periodicity&&c.periodicity!=='ponctuel'?'<small style="font-size:10px;color:var(--muted2)">/mois</small>':'') : '';
+  const invoiceCountStr = c.invoiceCount ? '<span style="font-size:10px;color:var(--muted2);padding:2px 6px;background:rgba(255,255,255,0.05);border-radius:4px">' + c.invoiceCount + ' factures</span>' : '';
 
   return '<div class="charge-row ' + (needsAction?'pending':'confirmed') + '" onclick="window._openCharge(\'' + c.id + '\')" style="cursor:pointer" >' +
     '<div class="charge-icon">' + (CEMOJI[c.category]||'\uD83D\uDCCC') + '</div>' +
@@ -1173,7 +1172,7 @@ function fournisseurRow(c) {
       '<div class="charge-meta">' + invInfo + '</div>' +
     '</div>' +
     '<div class="charge-mid">' +
-      '<div class="charge-amount">' + amtStr + '</div>' +
+      '<div class="charge-amount">' + invoiceCountStr + '</div>' +
       catBadge + autoBadge + periodBadge +
     '</div>' +
     '<div class="charge-action-btns"><button class="cab cab-edit" onclick="window._openCharge(\'' + c.id + '\')">Modifier</button>' +
@@ -1204,32 +1203,74 @@ async function loadPLCategories() {
   } catch(e) { console.warn('cats:', e); }
 }
 
-window._openCharge = id => {
+window._openCharge = async id => {
   _eid = id;
   const c = id ? (_cd[id]||{}) : {};
-  const isAuto = c.source === 'auto';
   document.getElementById('chargesModalTitle').textContent = id ? '' : 'Ajouter un fournisseur';
   const nameInput = document.getElementById('cmName');
-  const amountInput = document.getElementById('cmAmount');
-  // Nom et montant toujours grisés (info PL, pas modifiable ici)
-  // Grisé mais lisible
   nameInput.style.borderStyle = 'dashed';
   nameInput.style.color = 'var(--muted2)';
   nameInput.style.cursor = 'not-allowed';
   nameInput.readOnly = true;
-  amountInput.style.borderStyle = 'dashed';
-  amountInput.style.color = 'var(--muted2)';
-  amountInput.style.cursor = 'not-allowed';
-  amountInput.readOnly = true;
   document.getElementById('cmName').value = c.name||'';
-  document.getElementById('cmAmount').value = c.monthlyRef ? parseFloat(c.monthlyRef).toFixed(2) : '';
   document.getElementById('cmPeriod').value = c.periodicity||'mensuel';
   document.getElementById('cmAutoProp').checked = !!c.autoPropagation;
   _fillCatSelect(document.getElementById('cmCategory'), c.plCategoryId||null);
   document.getElementById('cmNote').value = c.internalNote||'';
   document.getElementById('cmComptable').value = c.plExternalRef||'';
   document.getElementById('chargesModal').classList.add('open');
+
+  const invDiv = document.getElementById('cmInvoices');
+  if(id && c.name) {
+    invDiv.innerHTML = '<div style="font-size:11px;color:var(--muted2)">\u23f3 Chargement des factures\u2026</div>';
+    try {
+      const token = await auth.currentUser.getIdToken();
+      const h = { Authorization:'Bearer '+token };
+      const dateFrom = (() => { const d=new Date(); d.setFullYear(d.getFullYear()-2); return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-01'; })();
+      const filter = encodeURIComponent(JSON.stringify([{"field":"date","operator":"gteq","value":dateFrom}]));
+      let all=[], cursor=null, iter=0;
+      const nameUpper = (c.name||'').trim().toUpperCase();
+      while(iter<10){
+        let url=PROXY+'?endpoint=supplier_invoices&limit=100&filter='+filter;
+        if(cursor) url+='&cursor='+encodeURIComponent(cursor);
+        const d=await fetch(url,{headers:h}).then(r=>r.json());
+        const items=(d.items||[]).filter(i=>!i.archived_at&&(i.label||'').toUpperCase().includes(nameUpper.split(' ')[0]));
+        all=all.concat(items);
+        iter++;
+        if(!d.has_more||!d.next_cursor||all.length>=20) break;
+        cursor=d.next_cursor;
+      }
+      // Trier par date desc, garder les 5 dernières
+      all.sort((a,b)=>b.date.localeCompare(a.date));
+      const last5 = all.slice(0,5);
+      if(!last5.length){
+        invDiv.innerHTML='<div style="font-size:11px;color:var(--muted2)">Aucune facture trouv\u00e9e dans PL</div>';
+        return;
+      }
+      const fmt2 = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:2}).format(parseFloat(n));
+      let html='<div style="font-size:10.5px;color:var(--muted2);font-weight:600;text-transform:uppercase;letter-spacing:.06em;margin-bottom:6px">Derni\u00e8res factures Pennylane</div>';
+      last5.forEach(inv => {
+        const url = inv.public_file_url || ('https://app.pennylane.com/companies/22905074/supplier_invoices/'+inv.id);
+        html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:5px 0;border-bottom:1px solid var(--border)">'
+          +'<div style="font-size:12px">'
+          +'<span style="color:var(--muted2)">' + inv.date + '</span>'
+          +' <span style="color:var(--text)">' + (inv.invoice_number||'—') + '</span>'
+          +'</div>'
+          +'<div style="display:flex;align-items:center;gap:8px">'
+          +'<span style="font-size:12px;font-weight:600;color:var(--warn)">' + fmt2(inv.amount) + '</span>'
+          +'<a href="'+url+'" target="_blank" style="font-size:11px;padding:3px 8px;border-radius:5px;background:rgba(96,165,250,0.12);color:var(--info);border:1px solid rgba(96,165,250,0.2);text-decoration:none;white-space:nowrap">Ouvrir \u2197</a>'
+          +'</div>'
+          +'</div>';
+      });
+      invDiv.innerHTML = html;
+    } catch(e) {
+      invDiv.innerHTML = '<div style="font-size:11px;color:var(--danger)">Erreur chargement factures</div>';
+    }
+  } else {
+    invDiv.innerHTML = '';
+  }
 };
+
 
 window._closeCharge = () => {
   document.getElementById('chargesModal').classList.remove('open');
@@ -1238,7 +1279,7 @@ window._closeCharge = () => {
 
 window._saveCharge = async () => {
   const name = document.getElementById('cmName').value.trim() || (_eid ? (_cd[_eid]?.name||'') : '');
-  const amount = parseFloat(document.getElementById('cmAmount').value) || parseFloat(_cd[_eid]?.monthlyRef)||0;
+  const amount = parseFloat(_cd[_eid]?.monthlyRef)||0;
   const catSel = document.getElementById('cmCategory');
   const plCatId = catSel.value ? parseInt(catSel.value) : null;
   const plCatLabel = catSel.value ? (catSel.options[catSel.selectedIndex]?.text||'').replace(/^\u00a0+[\u21b3]?\s*/,'') : '';
