@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.12</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.13</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.12</div>
+      <div class="header-version">v3.13</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1041,7 +1041,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.12
+// FOURNISSEURS — v3.13
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', irregulier: 'Variable',
@@ -1278,7 +1278,7 @@ window._syncCharges = async () => {
       let url=PROXY+'?endpoint=supplier_invoices&limit=100';
       if(cursor) url+='&cursor='+encodeURIComponent(cursor);
       const d=await fetch(url,{headers:{Authorization:'Bearer '+tok}}).then(r=>r.json());
-      all=all.concat(d.items||[]);
+      all=all.concat((d.items||[]).filter(i=>!i.archived_at));
       iter++;
       if(!d.has_more||!d.next_cursor) break;
       cursor=d.next_cursor;
