@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.15</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.17</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.15</div>
+      <div class="header-version">v3.17</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -402,6 +402,7 @@
     </select>
     <select id="cmPeriod" style="width:100%;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:9px 12px;font-size:13px;color:var(--text);font-family:inherit;box-sizing:border-box;outline:none;margin-bottom:10px;display:block">
       <option value="mensuel">Tous les mois</option>
+      <option value="bimestriel">Tous les 2 mois</option>
       <option value="irregulier">Fréquence variable</option>
       <option value="trimestriel">Tous les trimestres</option>
       <option value="annuel">Une fois par an</option>
@@ -1045,19 +1046,20 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.15
+// FOURNISSEURS — v3.17
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
-  mensuel: 'Mensuel', irregulier: 'Variable',
+  mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
   trimestriel: 'Trimestriel', annuel: 'Annuel', ponctuel: 'Ponctuel'
 };
 const PERIOD_COLOR = {
-  mensuel:'var(--accent)', irregulier:'var(--warn)',
+  mensuel:'var(--accent)', bimestriel:'#34d399', irregulier:'var(--warn)',
   trimestriel:'var(--info)', annuel:'var(--muted2)', ponctuel:'var(--muted2)'
 };
 
 function monthlyVal(c) {
   const r = parseFloat(c.monthlyRef)||0;
+  if (c.periodicity==='bimestriel') return r/2;
   if (c.periodicity==='trimestriel') return r/3;
   if (c.periodicity==='annuel') return r/12;
   if (c.periodicity==='ponctuel') return 0;
@@ -1281,7 +1283,8 @@ window._openCharge = async id => {
         let url=PROXY+'?endpoint=supplier_invoices&limit=100&filter='+filter;
         if(cursor) url+='&cursor='+encodeURIComponent(cursor);
         const d=await fetch(url,{headers:h}).then(r=>r.json());
-        const items=(d.items||[]).filter(i=>!i.archived_at&&(i.label||'').toUpperCase().includes(nameUpper.split(' ')[0]));
+        const extrName=l=>{const m=l&&l.match(/^Facture\s+(.+?)\s+-\s+/);return m?m[1].trim().toUpperCase():(l||'').toUpperCase();};
+        const items=(d.items||[]).filter(i=>!i.archived_at&&extrName(i.label)===nameUpper);
         all=all.concat(items);
         iter++;
         if(!d.has_more||!d.next_cursor||all.length>=20) break;
