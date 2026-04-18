@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.26</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.27</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.26</div>
+      <div class="header-version">v3.27</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1068,7 +1068,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.26
+// FOURNISSEURS — v3.27
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1626,7 +1626,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.26
+// ANALYSE CA — v3.27
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
@@ -1661,9 +1661,13 @@ window._loadAnalyse = async () => {
   const btn = document.getElementById('btnScanCA');
   if(btn) { btn.textContent = '\u23f3 Chargement\u2026'; btn.disabled = true; }
   try {
-    // Charger classifications depuis Firebase
-    const snap = await get(ref(db, 'tresorerie/tx_classifications'));
-    _txClassifications = snap.val() || {};
+    // Charger classifications + règles depuis Firebase
+    const [snapC, snapR] = await Promise.all([
+      get(ref(db, 'tresorerie/tx_classifications')),
+      get(ref(db, 'tresorerie/tx_rules'))
+    ]);
+    _txClassifications = snapC.val() || {};
+    const txRules = snapR.val() || {};
 
     const token = await auth.currentUser.getIdToken();
     const h = { Authorization: 'Bearer ' + token };
@@ -1682,11 +1686,21 @@ window._loadAnalyse = async () => {
     // Entrées uniquement
     const entrees = all.filter(t => parseFloat(t.amount) > 0);
 
+    // Appliquer règles apprises aux libellés
+    function applyRules(label) {
+      const l = (label||'').toLowerCase();
+      for(const [kw, rule] of Object.entries(txRules)) {
+        if(l.includes(rule.keyword||kw)) return rule.subtype;
+      }
+      return null;
+    }
     // Classifier
     const classified = entrees.map(t => {
       const saved = _txClassifications[String(t.id)];
+      if(saved) return { ...t, type: saved.type, subtype: saved.subtype };
       const auto = _autoClassify(t.label, parseFloat(t.amount));
-      return { ...t, type: saved ? saved.type : (auto || 'inconnu') };
+      const ruleSubtype = auto === 'ca' ? applyRules(t.label) : null;
+      return { ...t, type: auto || 'inconnu', subtype: ruleSubtype };
     });
 
     // CA par mois
@@ -1746,7 +1760,14 @@ window._loadAnalyse = async () => {
     document.getElementById('analyseDetail').innerHTML = detailHtml;
 
     // ── Accordéons CA et Hors CA ──
+    const SUBTYPE_LABELS = {
+      bar:'\ud83c\udfba Bar', studios:'\ud83c\udfb9 Studios',
+      activites:'\ud83c\udfaa Activit\u00e9s', tickets:'\ud83c\udfab Tickets/\u00c9v\u00e8nements',
+      b2b:'\ud83c\udfe2 Prestations B2B'
+    };
     function txTypeLabel(t) {
+      const saved = _txClassifications[String(t.id)];
+      if(saved && saved.subtype && SUBTYPE_LABELS[saved.subtype]) return SUBTYPE_LABELS[saved.subtype];
       const l = (t.label||'').toLowerCase();
       if(/^charge:/i.test(t.label)) return '\ud83c\udfab Tickets/\u00c9v\u00e8nements';
       if(STUDIO_CLIENTS.some(c=>l.includes(c))) return '\ud83c\udfb9 Studios';
@@ -1790,6 +1811,7 @@ window._loadAnalyse = async () => {
             + '<div style="font-size:10px;color:var(--muted2)">' + t.date + ' · <span style="color:var(--info)">' + badge + '</span></div>'
             + '</div>'
             + '<span style="font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap">' + fmt2(parseFloat(t.amount)) + '</span>'
+            + (badge.includes('Autre') ? '<select data-txid="'+t.id+'" data-label="'+encodeURIComponent(t.label||'')+' " onchange="window._subtypeTx(this.dataset.txid,this.value,decodeURIComponent(this.dataset.label))" style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 6px;color:var(--text);font-family:inherit;cursor:pointer;margin-left:4px"><option value="">Affecter\u2026</option><option value="bar">Bar</option><option value="studios">Studios</option><option value="activites">Activit\u00e9s</option><option value="tickets">Tickets</option><option value="b2b">Prestations B2B</option></select>' : '')
             + '</div>';
         });
         html += '</div></div>';
@@ -1859,8 +1881,32 @@ window._loadAnalyse = async () => {
 };
 
 window._classifyTx = async (txId, type) => {
-  _txClassifications[String(txId)] = { type };
-  await set(ref(db, 'tresorerie/tx_classifications/' + txId), { type });
+  const val = { type };
+  _txClassifications[String(txId)] = val;
+  await set(ref(db, 'tresorerie/tx_classifications/' + txId), val);
+  window._loadAnalyse();
+};
+window._subtypeTx = async (txId, subtype, rawLabel) => {
+  if(!subtype) return;
+  const existing = _txClassifications[String(txId)] || { type: 'ca' };
+  const val = { type: existing.type, subtype };
+  // 1. Mettre à jour cette transaction
+  _txClassifications[String(txId)] = val;
+  await set(ref(db, 'tresorerie/tx_classifications/' + txId), val);
+  // 2. Extraire un mot-cl\u00e9 du libell\u00e9 (1er mot significatif >3 chars)
+  const keyword = (rawLabel||'').trim().toLowerCase().split(/[\s/.,;:()-]+/).find(w=>w.length>3) || '';
+  if(keyword) {
+    // 3. Sauvegarder la r\u00e8gle
+    await set(ref(db, 'tresorerie/tx_rules/' + keyword.replace(/[^a-z0-9]/g,'')), { subtype, keyword });
+    // 4. Appliquer la r\u00e8gle \u00e0 toutes les transactions existantes avec ce mot-cl\u00e9
+    const updates = {};
+    Object.entries(_txClassifications).forEach(([id, c]) => {
+      if(String(id) !== String(txId) && (c.type==='ca'||!c.subtype)) {
+        // on ne peut pas v\u00e9rifier le label ici sans les transactions en m\u00e9moire
+        // la r\u00e8gle sera appliqu\u00e9e au prochain _loadAnalyse via tx_rules
+      }
+    });
+  }
   window._loadAnalyse();
 };
 
