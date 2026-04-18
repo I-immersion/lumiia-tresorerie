@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.35</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.36</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.35</div>
+      <div class="header-version">v3.36</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1068,7 +1068,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.35
+// FOURNISSEURS — v3.36
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1626,7 +1626,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.35
+// ANALYSE CA — v3.36
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
@@ -1796,14 +1796,14 @@ window._loadAnalyse = async () => {
         const mTotal = txs.reduce((s,t)=>s+parseFloat(t.amount),0);
         const mLabel = monthLabels[m]||m;
         const isOpen = idx===0;
-        const unclassifiedInMonth = txs.filter(t => isHorsCA ? txHorsCALabel(t).includes('Non pr\u00e9cis\u00e9') : txTypeLabel(t).includes('Autre')).length;
+        const unclassifiedInMonth = txs.filter(t => !_txClassifications[String(t.id)] || !_txClassifications[String(t.id)].subtype).length;
         const accId = containerId + '_' + m.replace('-','');
         html += '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:6px">'
-          + '<div onclick="(function(el){var b=el.nextElementSibling;b.style.display=b.style.display===\'none\'?\'block\':\'none\';el.querySelector(\'.arrow\').textContent=b.style.display===\'none\'?\'\u25bc\':\'\u25b2\'})(this)" style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;background:var(--surface);user-select:none">'
-          + '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--text)">' + mLabel + '</span><span style="font-size:11px;color:var(--muted2)">' + txs.length + ' tx</span>' + (unclassifiedInMonth > 0 ? '<span style="font-size:10px;padding:1px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:var(--warn);font-weight:600">⚠️ ' + unclassifiedInMonth + ' \u00e0 classer</span>' : '') + '</div>'
+          + '<div onclick="(function(el){var b=el.nextElementSibling;b.style.display=b.style.display===\'none\'?\'block\':\'none\';el.querySelector(\'.arrow\').textContent=b.style.display===\'none\'?\'\u25bc\':\'\u25b2\'})(this)" data-month-id="'+(containerId+m.replace('-',''))+'" style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;background:var(--surface);user-select:none">'
+          + '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--text)">' + mLabel + '</span><span style="font-size:11px;color:var(--muted2)">' + txs.length + ' tx</span>' + (unclassifiedInMonth > 0 ? '<span style="font-size:10px;padding:1px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:var(--warn);font-weight:600" class="month-warn-badge">⚠️ ' + unclassifiedInMonth + ' \u00e0 classer</span>' : '') + '</div>'
           + '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:600;color:' + (isHorsCA?'var(--muted2)':'var(--accent)') + '">' + fmt2(mTotal) + '</span><span class="arrow" style="font-size:10px;color:var(--muted2)">' + (isOpen?'\u25b2':'\u25bc') + '</span></div>'
           + '</div>'
-          + '<div style="display:' + (isOpen?'block':'none') + ';border-top:1px solid var(--border)">';
+          + '<div id="month-body-'+(containerId+m.replace('-',''))+'" style="display:' + (isOpen?'block':'none') + ';border-top:1px solid var(--border)">';
         txs.forEach(t => {
           const badge = isHorsCA ? txHorsCALabel(t) : txTypeLabel(t);
           const labelShort = (t.label||'').substring(0,55) + ((t.label||'').length>55?'\u2026':'');
@@ -1894,6 +1894,7 @@ window._loadAnalyse = async () => {
       + '<div style="font-size:11px;color:var(--muted2)">' + toQualify.length + ' transactions</div>'
       + '</div></div>';
 
+    window._cachedTx = entrees;
     _analyseLoaded = true;
     if(btn) { btn.textContent = '\u21bb Actualiser'; btn.disabled = false; }
   } catch(e) {
@@ -1912,7 +1913,32 @@ window._classifyFull = async (txId, val) => {
   const v = subtype ? { type, subtype } : { type };
   _txClassifications[String(txId)] = v;
   await set(ref(db, 'tresorerie/tx_classifications/' + txId), v);
-  window._loadAnalyse();
+  // Créer une règle auto-apprenante si on peut extraire un mot-clé
+  const allTx = window._cachedTx || [];
+  const tx = allTx.find(t=>String(t.id)===String(txId));
+  if(tx && tx.label) {
+    const keyword = tx.label.toLowerCase().split(/[\s/.,;:()\-]+/).find(w=>w.length>4&&!/^[0-9]+$/.test(w));
+    if(keyword) await set(ref(db,'tresorerie/tx_rules/'+keyword.replace(/[^a-z0-9]/g,'')), { keyword, type, subtype: subtype||'' });
+  }
+  window._refreshAccordions();
+};
+window._refreshAccordions = () => {
+  // Retirer le select de la ligne classée + mettre à jour le badge du mois
+  document.querySelectorAll('select[data-txid]').forEach(sel => {
+    const txId = sel.dataset.txid;
+    const saved = _txClassifications[String(txId)];
+    if(saved && saved.subtype) sel.remove();
+  });
+  // Mettre à jour les badges warning sur chaque header d'accordéon
+  document.querySelectorAll('[data-month-id]').forEach(header => {
+    const monthId = header.dataset.monthId;
+    const body = document.getElementById('month-body-' + monthId);
+    if(!body) return;
+    const remaining = body.querySelectorAll('select[data-txid]').length;
+    const badge = header.querySelector('.month-warn-badge');
+    if(badge) badge.style.display = remaining > 0 ? '' : 'none';
+    if(badge) badge.textContent = '⚠️ ' + remaining + ' à classer';
+  });
 };
 window._classifyTx = async (txId, type) => {
   const val = { type };
