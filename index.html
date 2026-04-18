@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.27</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.28</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.27</div>
+      <div class="header-version">v3.28</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1068,7 +1068,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.27
+// FOURNISSEURS — v3.28
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1626,14 +1626,14 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.27
+// ANALYSE CA — v3.28
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
   /^vir.*i.immersion.*ca/i, /vir sgc/i, /rem ch/i, /vrst ref/i, /vir inst/i,
   /gang des artistes/i, /remise esp/i, /remise cb/i, /yavin/i, /stripe/i,
   /^charge:/i, /depot distributeur/i, /vir.{0,10}lumiia/i, /lokanga/i, /acompte/i,
-  /herbarom/i, /l.amape/i, /office de tourisme/i
+  /herbarom/i, /l.amape/i, /office de tourisme/i, /privatisation/i
 ];
 const STUDIO_CLIENTS = ['lokanga','herbarom'];
 const ACTIVITE_CLIENTS = ['amape','office de tourisme'];
@@ -1763,7 +1763,7 @@ window._loadAnalyse = async () => {
     const SUBTYPE_LABELS = {
       bar:'\ud83c\udfba Bar', studios:'\ud83c\udfb9 Studios',
       activites:'\ud83c\udfaa Activit\u00e9s', tickets:'\ud83c\udfab Tickets/\u00c9v\u00e8nements',
-      b2b:'\ud83c\udfe2 Prestations B2B'
+      b2b:'\ud83c\udfe2 Prestations B2B', privatisation:'\ud83c\udf86 Privatisation'
     };
     function txTypeLabel(t) {
       const saved = _txClassifications[String(t.id)];
