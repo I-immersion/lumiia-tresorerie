@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.22</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.24</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.22</div>
+      <div class="header-version">v3.24</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -396,7 +396,9 @@
     <div id="analyseCAChart" style="margin-bottom:24px"></div>
     <div class="section-title" style="margin-bottom:12px">Transactions à qualifier <span id="analyseQualifyCount" style="font-size:11px;color:var(--warn);font-weight:400"></span></div>
     <div id="analyseQualifyList"></div>
-    <div class="section-title" style="margin-top:24px;margin-bottom:12px">Récapitulatif</div>
+    <div class="section-title" style="margin-top:24px;margin-bottom:12px">Détail mensuel</div>
+    <div id="analyseDetail" style="margin-bottom:24px"></div>
+    <div class="section-title" style="margin-top:0;margin-bottom:12px">Récapitulatif</div>
     <div id="analyseRecap"></div>
   </div>
 </div>
@@ -1062,7 +1064,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.22
+// FOURNISSEURS — v3.24
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1620,13 +1622,13 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.22
+// ANALYSE CA — v3.24
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
   /^vir.*i.immersion.*ca/i, /vir sgc/i, /rem ch/i, /vrst ref/i, /vir inst/i,
   /gang des artistes/i, /remise esp/i, /remise cb/i, /yavin/i, /stripe/i,
-  /^charge:/i, /depot distributeur/i, /vir.{0,10}lumiia/i
+  /^charge:/i, /depot distributeur/i, /vir.{0,10}lumiia/i, /lokanga/i, /acompte/i
 ];
 const HORS_CA_PATTERNS = [
   /^i-immersion$/i, /virement interne/i, /rej /i, /bpi france/i, /réda/i,
@@ -1707,6 +1709,34 @@ window._loadAnalyse = async () => {
     chartHtml += '<div style="font-size:12px;color:var(--muted2);text-align:right">CA total identifié : <strong style="color:var(--accent)">' + fmt2(totalCA) + '</strong></div>';
     document.getElementById('analyseCAChart').innerHTML = chartHtml;
 
+    // Détail mensuel
+    const monthLabels = {'2025-11':'Nov. 2025','2025-12':'Déc. 2025','2026-01':'Janv. 2026','2026-02':'Févr. 2026','2026-03':'Mars 2026','2026-04':'Avr. 2026','2026-05':'Mai 2026'};
+    const byMonthAll = {};
+    classified.forEach(t => {
+      const m = t.date.substring(0,7);
+      if(!byMonthAll[m]) byMonthAll[m] = {ca:0,hors_ca:0,inconnu:0};
+      byMonthAll[m][t.type] += parseFloat(t.amount);
+    });
+    const allMonths = Object.keys(byMonthAll).sort();
+    let detailHtml = '<table style="width:100%;border-collapse:collapse;font-size:13px"><thead><tr>'
+      + '<th style="text-align:left;padding:6px 12px;font-size:11px;font-weight:500;color:var(--muted2);border-bottom:1px solid var(--border)">Mois</th>'
+      + '<th style="text-align:right;padding:6px 12px;font-size:11px;font-weight:500;color:var(--accent);border-bottom:1px solid var(--border)">CA</th>'
+      + '<th style="text-align:right;padding:6px 12px;font-size:11px;font-weight:500;color:var(--muted2);border-bottom:1px solid var(--border)">Hors CA</th>'
+      + '<th style="text-align:right;padding:6px 12px;font-size:11px;font-weight:500;color:var(--warn);border-bottom:1px solid var(--border)">À qualifier</th>'
+      + '</tr></thead><tbody>';
+    allMonths.forEach(m => {
+      const v = byMonthAll[m];
+      const label = monthLabels[m] || m;
+      detailHtml += '<tr>'
+        + '<td style="padding:9px 12px;border-bottom:1px solid var(--border);color:var(--text)">' + label + '</td>'
+        + '<td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;color:var(--accent)">' + (v.ca>0?fmt2(v.ca):'—') + '</td>'
+        + '<td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;color:var(--muted2)">' + (v.hors_ca>0?fmt2(v.hors_ca):'—') + '</td>'
+        + '<td style="padding:9px 12px;border-bottom:1px solid var(--border);text-align:right;color:' + (v.inconnu>0?'var(--warn)':'var(--muted2)') + '">' + (v.inconnu>0?fmt2(v.inconnu):'✓') + '</td>'
+        + '</tr>';
+    });
+    detailHtml += '</tbody></table>';
+    document.getElementById('analyseDetail').innerHTML = detailHtml;
+
     // Transactions à qualifier
     const toQualify = classified.filter(t=>t.type==='inconnu').sort((a,b)=>b.date.localeCompare(a.date));
     const countEl = document.getElementById('analyseQualifyCount');
@@ -1757,7 +1787,7 @@ window._loadAnalyse = async () => {
     if(btn) { btn.textContent = '\u21bb Actualiser'; btn.disabled = false; }
   } catch(e) {
     console.error('loadAnalyse error', e.message, e.stack);
-    const analyseZones = ['analyseCAChart','analyseQualifyList','analyseRecap'];
+    const analyseZones = ['analyseCAChart','analyseQualifyList','analyseDetail','analyseRecap'];
     analyseZones.forEach(id => { const el=document.getElementById(id); if(el) el.innerHTML=''; });
     const errDiv = document.getElementById('analyseQualifyList');
     if(errDiv) errDiv.innerHTML = '<div style="font-size:12px;color:var(--danger);padding:12px 0">Erreur : ' + e.message + '</div>';
