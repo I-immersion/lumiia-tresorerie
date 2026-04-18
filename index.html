@@ -17,7 +17,7 @@
     /* LOGIN */
     #loginScreen{display:flex;align-items:center;justify-content:center;min-height:100vh;padding:20px;}
     .login-card{background:var(--surface);border:1px solid var(--border);border-radius:20px;padding:40px;width:100%;max-width:400px;}
-    .login-logo{font-family:'DM Serif Display',serif;font-size:24px;margin-bottom:8px;}
+    .login-logo{font-family:var(--font-serif,serif);font-size:24px;margin-bottom:8px;}
     .login-logo span{color:var(--accent);}
     .login-subtitle{font-size:13px;color:var(--muted2);margin-bottom:32px;}
     .login-field{margin-bottom:16px;}
@@ -31,7 +31,7 @@
     #app{display:none;}
     .header{display:flex;align-items:center;justify-content:space-between;padding:16px 32px 12px;border-bottom:1px solid var(--border);background:var(--surface);}
     .header-left{display:flex;flex-direction:column;gap:2px;}
-    .logo{font-family:'DM Serif Display',serif;font-size:20px;} .logo span{color:var(--accent);}
+    .logo{font-family:var(--font-serif,serif);font-size:20px;} .logo span{color:var(--accent);}
     .header-version{font-size:0.72rem;color:var(--muted2);font-weight:600;letter-spacing:0.06em;}
     .header-right{display:flex;align-items:center;gap:16px;}
     .badge{font-size:11px;padding:4px 10px;border-radius:20px;}
@@ -72,7 +72,7 @@
     .bank-card.main{border-color:rgba(74,222,128,0.25);background:linear-gradient(135deg,rgba(74,222,128,0.06),var(--surface));}
     .bank-card.total{border-color:rgba(96,165,250,0.25);background:linear-gradient(135deg,rgba(96,165,250,0.06),var(--surface));}
     .bank-name{font-size:11px;color:var(--muted2);font-weight:500;letter-spacing:.3px;margin-bottom:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:180px;}
-    .bank-amount{font-family:'DM Serif Display',serif;font-size:22px;letter-spacing:-0.5px;line-height:1;}
+    .bank-amount{font-family:var(--font-serif,serif);font-size:22px;letter-spacing:-0.5px;line-height:1;}
     .bank-bar{position:absolute;bottom:0;left:0;right:0;height:2px;}
     .bank-card.main .bank-bar{background:var(--accent);}
     .bank-card.total .bank-bar{background:var(--info);}
@@ -100,7 +100,7 @@
     .kpi{background:var(--surface);border:1px solid var(--border);border-radius:14px;padding:20px;position:relative;overflow:hidden;transition:transform .2s;}
     .kpi:hover{transform:translateY(-2px);}
     .kpi-label{font-size:11px;color:var(--muted2);text-transform:uppercase;letter-spacing:.8px;font-weight:500;margin-bottom:10px;}
-    .kpi-value{font-family:'DM Serif Display',serif;font-size:28px;letter-spacing:-1px;line-height:1;}
+    .kpi-value{font-family:var(--font-serif,serif);font-size:28px;letter-spacing:-1px;line-height:1;}
     .kpi-sub{font-size:12px;margin-top:8px;color:var(--muted2);}
     .kpi-bar{position:absolute;bottom:0;left:0;right:0;height:3px;border-radius:0 0 14px 14px;}
     .skeleton{background:var(--surface2);border-radius:6px;height:28px;width:100px;animation:pulse 1.5s infinite;}
@@ -221,7 +221,7 @@
 .modal-btn-save{background:var(--accent);color:#0d0f14;font-weight:600;}
 .charges-summary{background:var(--surface2);border:1px solid var(--border);border-radius:10px;padding:14px 16px;margin-top:14px;display:flex;justify-content:space-between;align-items:center;}
 .charges-summary-label{font-size:11.5px;color:var(--muted2);}
-.charges-summary-amount{font-family:'DM Serif Display',serif;font-size:24px;letter-spacing:-0.5px;}
+.charges-summary-amount{font-family:var(--font-serif,serif);font-size:24px;letter-spacing:-0.5px;}
   </style>
 </head>
 <body>
@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.20</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.21</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.20</div>
+      <div class="header-version">v3.21</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -258,6 +258,7 @@
   <div class="tab-nav">
     <button class="tab-btn active" id="tabDashboard" onclick="window._setTab('dashboard')">&#128202; Tableau de bord</button>
     <button class="tab-btn" id="tabCharges" onclick="window._setTab('charges')">&#128200; Charges r&eacute;currentes <span id="chargesNavBadge" class="tab-badge" style="display:none"></span></button>
+    <button class="tab-btn" id="tabAnalyse" onclick="window._setTab('analyse')">&#128269; Analyse CA</button>
   </div>
 
   <div class="content" id="tabContentDashboard">
@@ -383,6 +384,20 @@
     </div>
     <div id="syncSummary" style="font-size:11px;color:var(--muted2);padding:6px 0 2px;text-align:right"></div>
     <div id="chargesByMonth"></div>
+  </div>
+</div>
+
+<div id="tabContentAnalyse" style="display:none">
+  <div class="content" style="padding-top:16px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
+      <div class="section-title" style="margin-bottom:0">Chiffre d'affaires depuis novembre 2025</div>
+      <button id="btnScanCA" onclick="window._loadAnalyse()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px;cursor:pointer">&#8635; Actualiser</button>
+    </div>
+    <div id="analyseCAChart" style="margin-bottom:24px"></div>
+    <div class="section-title" style="margin-bottom:12px">Transactions à qualifier <span id="analyseQualifyCount" style="font-size:11px;color:var(--warn);font-weight:400"></span></div>
+    <div id="analyseQualifyList"></div>
+    <div class="section-title" style="margin-top:24px;margin-bottom:12px">Récapitulatif</div>
+    <div id="analyseRecap"></div>
   </div>
 </div>
 
@@ -1047,7 +1062,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.20
+// FOURNISSEURS — v3.21
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1269,9 +1284,12 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 // ── Navigation onglets ──
 window._setTab = (tab) => {
   document.getElementById('tabContentDashboard').style.display = tab==='dashboard' ? '' : 'none';
-  document.getElementById('tabContentCharges').style.display  = tab==='charges'   ? '' : 'none';
+  document.getElementById('tabContentCharges').style.display   = tab==='charges'   ? '' : 'none';
+  document.getElementById('tabContentAnalyse').style.display   = tab==='analyse'   ? '' : 'none';
   document.getElementById('tabDashboard').classList.toggle('active', tab==='dashboard');
   document.getElementById('tabCharges').classList.toggle('active',   tab==='charges');
+  document.getElementById('tabAnalyse').classList.toggle('active',   tab==='analyse');
+  if(tab==='analyse') window._loadAnalyse();
 };
 
 // ── Chargement des catégories PL ──
@@ -1600,6 +1618,156 @@ async function _writeCatToPennylane(chargeName, catId) {
 
 
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
+
+// ═══════════════════════════════════════════════════════
+// ANALYSE CA — v3.21
+// ═══════════════════════════════════════════════════════
+
+const CA_PATTERNS = [
+  /^vir.*i.immersion.*ca/i, /vir sgc/i, /rem ch/i, /vrst ref/i, /vir inst/i,
+  /gang des artistes/i, /remise esp/i, /remise cb/i, /yavin/i, /stripe/i,
+  /^charge:/i, /depot distributeur/i, /vir.{0,10}lumiia/i
+];
+const HORS_CA_PATTERNS = [
+  /^i-immersion$/i, /virement interne/i, /rej /i, /bpi france/i, /réda/i,
+  /deblocage/i, /mise.{0,5}disposition/i, /remboursement facture/i,
+  /sinfotechit/i, /aliexpress/i, /amazon payments/i, /amazon eu sarl/i,
+  /lokanga/i, /cic.*pret/i, /pret.*cic/i
+];
+
+function _autoClassify(label, amount) {
+  const l = label || '';
+  if(CA_PATTERNS.some(p=>p.test(l))) return 'ca';
+  if(HORS_CA_PATTERNS.some(p=>p.test(l))) return 'hors_ca';
+  // Virements I-IMMERSION (transferts internes)
+  if(/i-immersion/i.test(l) && amount >= 500) return 'hors_ca';
+  return null;
+}
+
+let _txClassifications = {};
+let _analyseLoaded = false;
+
+window._loadAnalyse = async () => {
+  const btn = document.getElementById('btnScanCA');
+  if(btn) { btn.textContent = '\u23f3 Chargement\u2026'; btn.disabled = true; }
+  try {
+    // Charger classifications depuis Firebase
+    const snap = await get(ref(db, 'tresorerie/tx_classifications'));
+    _txClassifications = snap.val() || {};
+
+    const token = await auth.currentUser.getIdToken();
+    const h = { Authorization: 'Bearer ' + token };
+    const filter = encodeURIComponent(JSON.stringify([{"field":"date","operator":"gteq","value":"2025-11-01"}]));
+    let all = [], cursor = null, iter = 0;
+    while(iter < 20) {
+      let url = PROXY + '/transactions?limit=100&filter=' + filter;
+      if(cursor) url += '&cursor=' + encodeURIComponent(cursor);
+      const d = await fetch(url, {headers:h}).then(r=>r.json());
+      all = all.concat(d.items||[]);
+      iter++;
+      if(!d.has_more || !d.next_cursor) break;
+      cursor = d.next_cursor;
+    }
+
+    // Entrées uniquement
+    const entrees = all.filter(t => parseFloat(t.amount) > 0);
+
+    // Classifier
+    const classified = entrees.map(t => {
+      const saved = _txClassifications[String(t.id)];
+      const auto = _autoClassify(t.label, parseFloat(t.amount));
+      return { ...t, type: saved ? saved.type : (auto || 'inconnu') };
+    });
+
+    // CA par mois
+    const byMonth = {};
+    classified.filter(t=>t.type==='ca').forEach(t => {
+      const m = t.date.substring(0,7);
+      if(!byMonth[m]) byMonth[m] = 0;
+      byMonth[m] += parseFloat(t.amount);
+    });
+
+    // Render chart CA
+    const months = Object.keys(byMonth).sort();
+    const fmt2 = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+    let chartHtml = '<div style="display:flex;gap:6px;align-items:flex-end;height:120px;margin-bottom:6px">';
+    const maxVal = Math.max(...Object.values(byMonth), 1);
+    months.forEach(m => {
+      const v = byMonth[m] || 0;
+      const h = Math.round((v/maxVal)*100);
+      const label = m.substring(5) + '/' + m.substring(2,4);
+      chartHtml += '<div style="display:flex;flex-direction:column;align-items:center;flex:1;gap:4px">'
+        + '<div style="font-size:10px;color:var(--muted2)">' + fmt2(v) + '</div>'
+        + '<div style="width:100%;background:var(--accent);border-radius:4px 4px 0 0;height:' + h + '%;min-height:4px"></div>'
+        + '<div style="font-size:10px;color:var(--muted2)">' + label + '</div>'
+        + '</div>';
+    });
+    chartHtml += '</div>';
+    const totalCA = Object.values(byMonth).reduce((s,v)=>s+v,0);
+    chartHtml += '<div style="font-size:12px;color:var(--muted2);text-align:right">CA total identifié : <strong style="color:var(--accent)">' + fmt2(totalCA) + '</strong></div>';
+    document.getElementById('analyseCAChart').innerHTML = chartHtml;
+
+    // Transactions à qualifier
+    const toQualify = classified.filter(t=>t.type==='inconnu').sort((a,b)=>b.date.localeCompare(a.date));
+    const countEl = document.getElementById('analyseQualifyCount');
+    if(countEl) countEl.textContent = toQualify.length ? '(' + toQualify.length + ' en attente)' : '';
+
+    let qHtml = '';
+    if(!toQualify.length) {
+      qHtml = '<div style="font-size:13px;color:var(--muted2);padding:12px 0">Toutes les transactions sont qualifiées \u2713</div>';
+    } else {
+      toQualify.forEach(t => {
+        const labelShort = (t.label||'').substring(0,60) + ((t.label||'').length>60?'\u2026':'');
+        qHtml += '<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--border);gap:12px">'
+          + '<div style="flex:1;min-width:0">'
+          + '<div style="font-size:12px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + labelShort + '</div>'
+          + '<div style="font-size:11px;color:var(--muted2)">' + t.date + '</div>'
+          + '</div>'
+          + '<div style="font-size:13px;font-weight:600;color:var(--warn);white-space:nowrap">' + fmt2(parseFloat(t.amount)) + '</div>'
+          + '<div style="display:flex;gap:6px;flex-shrink:0">'
+          + '<button data-txid="'+t.id+'" data-type="ca" onclick="window._classifyTx(this.dataset.txid,this.dataset.type)" style="background:rgba(74,222,128,0.1);border:1px solid rgba(74,222,128,0.3);border-radius:6px;color:var(--accent);font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap">CA ✓</button>'
+          + '<button data-txid="'+t.id+'" data-type="hors_ca" onclick="window._classifyTx(this.dataset.txid,this.dataset.type)" style="background:rgba(107,114,128,0.1);border:1px solid var(--border);border-radius:6px;color:var(--muted2);font-size:11px;padding:4px 10px;cursor:pointer;white-space:nowrap">Hors CA</button>'
+          + '</div></div>';
+      });
+    }
+    document.getElementById('analyseQualifyList').innerHTML = qHtml;
+
+    // Récapitulatif
+    const totCA = classified.filter(t=>t.type==='ca').reduce((s,t)=>s+parseFloat(t.amount),0);
+    const totHors = classified.filter(t=>t.type==='hors_ca').reduce((s,t)=>s+parseFloat(t.amount),0);
+    const totInc = classified.filter(t=>t.type==='inconnu').reduce((s,t)=>s+parseFloat(t.amount),0);
+    document.getElementById('analyseRecap').innerHTML = '<div style="display:grid;grid-template-columns:repeat(3,1fr);gap:12px">'
+      + '<div style="background:var(--surface);border-radius:10px;padding:14px;border:1px solid var(--border)">'
+      + '<div style="font-size:11px;color:var(--muted2);margin-bottom:4px">CA identifié</div>'
+      + '<div style="font-size:20px;font-family:var(--font-serif,serif);color:var(--accent)">' + fmt2(totCA) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted2)">' + classified.filter(t=>t.type==='ca').length + ' transactions</div>'
+      + '</div>'
+      + '<div style="background:var(--surface);border-radius:10px;padding:14px;border:1px solid var(--border)">'
+      + '<div style="font-size:11px;color:var(--muted2);margin-bottom:4px">Hors CA (crédits, virements)</div>'
+      + '<div style="font-size:20px;font-family:var(--font-serif,serif);color:var(--muted2)">' + fmt2(totHors) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted2)">' + classified.filter(t=>t.type==='hors_ca').length + ' transactions</div>'
+      + '</div>'
+      + '<div style="background:var(--surface);border-radius:10px;padding:14px;border:1px solid ' + (totInc>0?'var(--warn)':'var(--border)') + '">'
+      + '<div style="font-size:11px;color:var(--muted2);margin-bottom:4px">À qualifier</div>'
+      + '<div style="font-size:20px;font-family:var(--font-serif,serif);color:' + (totInc>0?'var(--warn)':'var(--muted2)') + '">' + fmt2(totInc) + '</div>'
+      + '<div style="font-size:11px;color:var(--muted2)">' + toQualify.length + ' transactions</div>'
+      + '</div></div>';
+
+    _analyseLoaded = true;
+    if(btn) { btn.textContent = '\u21bb Actualiser'; btn.disabled = false; }
+  } catch(e) {
+    console.error('loadAnalyse error', e);
+    if(btn) { btn.textContent = '\u2717 Erreur'; btn.disabled = false; }
+  }
+};
+
+window._classifyTx = async (txId, type) => {
+  _txClassifications[String(txId)] = { type };
+  await set(ref(db, 'tresorerie/tx_classifications/' + txId), { type });
+  window._loadAnalyse();
+};
+
+
 document.getElementById('chargesModal').addEventListener('click',e=>{if(e.target===document.getElementById('chargesModal'))window._closeCharge();});
 
 </script>
