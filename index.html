@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.31</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.32</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.31</div>
+      <div class="header-version">v3.32</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1068,7 +1068,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.31
+// FOURNISSEURS — v3.32
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1626,7 +1626,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.31
+// ANALYSE CA — v3.32
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
@@ -1795,22 +1795,23 @@ window._loadAnalyse = async () => {
         const mTotal = txs.reduce((s,t)=>s+parseFloat(t.amount),0);
         const mLabel = monthLabels[m]||m;
         const isOpen = idx===0;
+        const unclassifiedInMonth = txs.filter(t => isHorsCA ? txHorsCALabel(t).includes('Non pr\u00e9cis\u00e9') : txTypeLabel(t).includes('Autre')).length;
         const accId = containerId + '_' + m.replace('-','');
         html += '<div style="border:1px solid var(--border);border-radius:10px;overflow:hidden;margin-bottom:6px">'
           + '<div onclick="(function(el){var b=el.nextElementSibling;b.style.display=b.style.display===\'none\'?\'block\':\'none\';el.querySelector(\'.arrow\').textContent=b.style.display===\'none\'?\'\u25bc\':\'\u25b2\'})(this)" style="display:flex;align-items:center;justify-content:space-between;padding:11px 16px;cursor:pointer;background:var(--surface);user-select:none">'
-          + '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:500;color:var(--text)">' + mLabel + '</span><span style="font-size:11px;color:var(--muted2)">' + txs.length + ' transactions</span></div>'
-          + '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:600;color:var(--accent)">' + fmt2(mTotal) + '</span><span class="arrow" style="font-size:10px;color:var(--muted2)">' + (isOpen?'\u25b2':'\u25bc') + '</span></div>'
+          + '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--text)">' + mLabel + '</span><span style="font-size:11px;color:var(--muted2)">' + txs.length + ' tx</span>' + (unclassifiedInMonth > 0 ? '<span style="font-size:10px;padding:1px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:var(--warn);font-weight:600">!' + unclassifiedInMonth + ' \u00e0 classer</span>' : '') + '</div>'
+          + '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:600;color:' + (isHorsCA?'var(--muted2)':'var(--accent)') + '">' + fmt2(mTotal) + '</span><span class="arrow" style="font-size:10px;color:var(--muted2)">' + (isOpen?'\u25b2':'\u25bc') + '</span></div>'
           + '</div>'
           + '<div style="display:' + (isOpen?'block':'none') + ';border-top:1px solid var(--border)">';
         txs.forEach(t => {
           const badge = isHorsCA ? txHorsCALabel(t) : txTypeLabel(t);
           const labelShort = (t.label||'').substring(0,55) + ((t.label||'').length>55?'\u2026':'');
-          html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.04);gap:8px">'
+          html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 16px;border-bottom:1px solid rgba(255,255,255,0.04);gap:8px;' + (isHorsCA?'background:rgba(107,114,128,0.04)':'') + '">'
             + '<div style="flex:1;min-width:0">'
             + '<div style="font-size:11px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis">' + labelShort + '</div>'
             + '<div style="font-size:10px;color:var(--muted2)">' + t.date + ' · <span style="color:var(--info)">' + badge + '</span></div>'
             + '</div>'
-            + '<span style="font-size:12px;font-weight:600;color:var(--accent);white-space:nowrap">' + fmt2(parseFloat(t.amount)) + '</span>'
+            + '<span style="font-size:12px;font-weight:600;color:' + (isHorsCA?'var(--muted2)':'var(--accent)') + ';white-space:nowrap">' + fmt2(parseFloat(t.amount)) + '</span>'
             + (isHorsCA ? horsCASelect(t) : (badge.includes('Autre') ? '<select data-txid="'+t.id+'" data-label="'+encodeURIComponent(t.label||'')+' " onchange="window._subtypeTx(this.dataset.txid,this.value,decodeURIComponent(this.dataset.label))" style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 6px;color:var(--text);font-family:inherit;cursor:pointer;margin-left:4px"><option value="">Affecter\u2026</option><option value="bar">Bar</option><option value="studios">Studios</option><option value="activites">Activit\u00e9s</option><option value="tickets">Tickets</option><option value="b2b">Prestations B2B</option><option value=\"privatisation\">Privatisation</option></select>' : ''))
             + '</div>';
         });
