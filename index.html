@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.36</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.37</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.36</div>
+      <div class="header-version">v3.37</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1068,7 +1068,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.36
+// FOURNISSEURS — v3.37
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1626,7 +1626,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.36
+// ANALYSE CA — v3.37
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
@@ -1685,6 +1685,7 @@ window._loadAnalyse = async () => {
 
     // Entrées uniquement
     const entrees = all.filter(t => parseFloat(t.amount) > 0);
+    window._cachedTx = entrees;
 
     // Appliquer règles apprises aux libellés
     function applyRules(label) {
@@ -1803,7 +1804,7 @@ window._loadAnalyse = async () => {
           + '<div style="display:flex;align-items:center;gap:8px"><span style="font-size:13px;font-weight:500;color:var(--text)">' + mLabel + '</span><span style="font-size:11px;color:var(--muted2)">' + txs.length + ' tx</span>' + (unclassifiedInMonth > 0 ? '<span style="font-size:10px;padding:1px 7px;border-radius:4px;background:rgba(251,191,36,0.15);color:var(--warn);font-weight:600" class="month-warn-badge">⚠️ ' + unclassifiedInMonth + ' \u00e0 classer</span>' : '') + '</div>'
           + '<div style="display:flex;align-items:center;gap:10px"><span style="font-size:13px;font-weight:600;color:' + (isHorsCA?'var(--muted2)':'var(--accent)') + '">' + fmt2(mTotal) + '</span><span class="arrow" style="font-size:10px;color:var(--muted2)">' + (isOpen?'\u25b2':'\u25bc') + '</span></div>'
           + '</div>'
-          + '<div id="month-body-'+(containerId+m.replace('-',''))+'" style="display:' + (isOpen?'block':'none') + ';border-top:1px solid var(--border)">';
+          + '<div id="month-body-'+(containerId+m.replace('-',''))+'" style="display:' + (isOpen?'block':'none') + ';border-top:1px solid var(--border)">' + '\n';
         txs.forEach(t => {
           const badge = isHorsCA ? txHorsCALabel(t) : txTypeLabel(t);
           const labelShort = (t.label||'').substring(0,55) + ((t.label||'').length>55?'\u2026':'');
@@ -1913,15 +1914,45 @@ window._classifyFull = async (txId, val) => {
   const v = subtype ? { type, subtype } : { type };
   _txClassifications[String(txId)] = v;
   await set(ref(db, 'tresorerie/tx_classifications/' + txId), v);
-  // Créer une règle auto-apprenante si on peut extraire un mot-clé
+
+  // Extraire un mot-clé pertinent du libellé
   const allTx = window._cachedTx || [];
-  const tx = allTx.find(t=>String(t.id)===String(txId));
+  const tx = allTx.find(t => String(t.id) === String(txId));
   if(tx && tx.label) {
-    const keyword = tx.label.toLowerCase().split(/[\s/.,;:()\-]+/).find(w=>w.length>4&&!/^[0-9]+$/.test(w));
-    if(keyword) await set(ref(db,'tresorerie/tx_rules/'+keyword.replace(/[^a-z0-9]/g,'')), { keyword, type, subtype: subtype||'' });
+    const label = tx.label.toLowerCase();
+    // Pour les "Charge: NomClient - EvtName", extraire le nom d'événement (après le 2e tiret)
+    let keyword = '';
+    const chargeMatch = label.match(/charge:.*?-\s*(.+?)\s*-/);
+    if(chargeMatch) {
+      // Extraire un mot significatif du nom d'événement
+      keyword = chargeMatch[1].split(/[\s/]+/).find(w => w.length > 4 && !/^[0-9]+$/.test(w)) || '';
+    } else {
+      // Sinon prendre le premier mot significatif après les mots génériques
+      const SKIP = new Set(['virement','paiement','prelevement','remise','depot','avoir','charge','ordre']);
+      keyword = label.split(/[\s/.,;:()+\-]+/).find(w => w.length > 4 && !SKIP.has(w) && !/^[0-9]+$/.test(w)) || '';
+    }
+    if(keyword) {
+      const ruleKey = keyword.replace(/[^a-z0-9]/g,'');
+      await set(ref(db, 'tresorerie/tx_rules/' + ruleKey), { keyword, type, subtype: subtype||'' });
+      // Appliquer immédiatement la règle à toutes les transactions similaires en mémoire
+      const batchUpdates = {};
+      allTx.forEach(t => {
+        if(String(t.id) === String(txId)) return; // déjà classifiée
+        if(_txClassifications[String(t.id)] && _txClassifications[String(t.id)].subtype) return; // déjà manuellement affectée
+        if((t.label||'').toLowerCase().includes(keyword)) {
+          _txClassifications[String(t.id)] = v;
+          batchUpdates['tresorerie/tx_classifications/' + t.id] = v;
+        }
+      });
+      if(Object.keys(batchUpdates).length > 0) {
+        await update(ref(db, '/'), batchUpdates);
+        console.log('Règle "' + keyword + '" appliquée à ' + Object.keys(batchUpdates).length + ' transactions');
+      }
+    }
   }
   window._refreshAccordions();
 };
+
 window._refreshAccordions = () => {
   // Retirer le select de la ligne classée + mettre à jour le badge du mois
   document.querySelectorAll('select[data-txid]').forEach(sel => {
@@ -1937,14 +1968,14 @@ window._refreshAccordions = () => {
     const remaining = body.querySelectorAll('select[data-txid]').length;
     const badge = header.querySelector('.month-warn-badge');
     if(badge) badge.style.display = remaining > 0 ? '' : 'none';
-    if(badge) badge.textContent = '⚠️ ' + remaining + ' à classer';
+    if(badge) { if(remaining > 0) { badge.style.display=''; badge.textContent='⚠️ ' + remaining + ' \u00e0 classer'; } else { badge.style.display='none'; } }
   });
 };
 window._classifyTx = async (txId, type) => {
   const val = { type };
   _txClassifications[String(txId)] = val;
   await set(ref(db, 'tresorerie/tx_classifications/' + txId), val);
-  window._loadAnalyse();
+  window._refreshAccordions();
 };
 window._subtypeTx = async (txId, subtype, rawLabel) => {
   if(!subtype) return;
