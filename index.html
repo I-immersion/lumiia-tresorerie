@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.33</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.35</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.33</div>
+      <div class="header-version">v3.35</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1068,7 +1068,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.33
+// FOURNISSEURS — v3.35
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1626,7 +1626,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.33
+// ANALYSE CA — v3.35
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
@@ -1732,7 +1732,8 @@ window._loadAnalyse = async () => {
     document.getElementById('analyseCAChart').innerHTML = chartHtml;
 
     // Détail mensuel
-    const monthLabels = {'2025-11':'Nov. 2025','2025-12':'Déc. 2025','2026-01':'Janv. 2026','2026-02':'Févr. 2026','2026-03':'Mars 2026','2026-04':'Avr. 2026','2026-05':'Mai 2026'};
+    const monthLabels = {};
+    (()=>{ const now = new Date(); for(let i=0;i<24;i++){ const d=new Date(now.getFullYear(),now.getMonth()-18+i,1); const k=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'); monthLabels[k]=d.toLocaleDateString('fr-FR',{month:'short',year:'numeric'}); } })();
     const byMonthAll = {};
     classified.forEach(t => {
       const m = t.date.substring(0,7);
@@ -1812,7 +1813,7 @@ window._loadAnalyse = async () => {
             + '<div style="font-size:10px;color:var(--muted2)">' + t.date + ' · <span style="color:var(--info)">' + badge + '</span></div>'
             + '</div>'
             + '<span style="font-size:12px;font-weight:600;color:' + (isHorsCA?'var(--muted2)':'var(--accent)') + ';white-space:nowrap">' + fmt2(parseFloat(t.amount)) + '</span>'
-            + '<select data-txid="'+t.id+'" onchange="window._classifyFull(this.dataset.txid,this.value)" style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 6px;color:var(--text);font-family:inherit;cursor:pointer;margin-left:4px"><option value="">Affecter\u2026</option><optgroup label="\u2714 CA"><option value="ca|bar">Bar</option><option value="ca|studios">Studios</option><option value="ca|activites">Activit\u00e9s</option><option value="ca|tickets">Tickets/\u00c9v\u00e8nements</option><option value="ca|b2b">Prestations B2B</option><option value="ca|privatisation">Privatisation</option></optgroup><optgroup label="\u2716 Hors CA"><option value="hors_ca|credit">Cr\u00e9dit/Pr\u00eat</option><option value="hors_ca|virement_interne">Virement interne</option><option value="hors_ca|remboursement">Remboursement fournisseur</option><option value="hors_ca|rejet">Rejet pr\u00e9l\u00e8vement</option><option value="hors_ca|hors_ca_autre">Autre hors CA</option></optgroup></select>'
+            + ((!_txClassifications[String(t.id)] || !_txClassifications[String(t.id)].subtype) ? '<select data-txid="'+t.id+'" onchange="window._classifyFull(this.dataset.txid,this.value)" style="font-size:11px;background:var(--surface2);border:1px solid var(--border);border-radius:5px;padding:3px 6px;color:var(--text);font-family:inherit;cursor:pointer;margin-left:4px"><option value="">Affecter\u2026</option><optgroup label="\u2714 CA"><option value="ca|bar">Bar</option><option value="ca|studios">Studios</option><option value="ca|activites">Activit\u00e9s</option><option value="ca|tickets">Tickets/\u00c9v\u00e8nements</option><option value="ca|b2b">Prestations B2B</option><option value="ca|privatisation">Privatisation</option></optgroup><optgroup label="\u2716 Hors CA"><option value="hors_ca|credit">Cr\u00e9dit/Pr\u00eat</option><option value="hors_ca|virement_interne">Virement interne</option><option value="hors_ca|remboursement">Remboursement fournisseur</option><option value="hors_ca|rejet">Rejet pr\u00e9l\u00e8vement</option><option value="hors_ca|hors_ca_autre">Autre hors CA</option></optgroup></select>' : '')
             + '</div>';
         });
         html += '</div></div>';
