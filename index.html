@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.61</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.62</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.61</div>
+      <div class="header-version">v3.62</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1623,7 +1623,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.61
+// FOURNISSEURS — v3.62
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1871,7 +1871,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.61
+// COMPARATIF CA / CHARGES — v3.62
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2371,7 +2371,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.61
+// ANALYSE CA — v3.62
 let _caGran = 'semaine'; // 'semaine' | 'mois'
 let _caWin  = 8;         // nombre de semaines ou de mois à afficher
 
@@ -2599,26 +2599,21 @@ window.renderCAChart = function() {
     const cx  = pad.left + i*slotW + slotW/2;
     const prevK = prevKeys[prevKeys.length - currentKeys.length + i];
 
-    // Période précédente — barre fantôme : hauteur totale grise + ligne colorée en haut
+    // Période précédente — ligne horizontale pointillée au niveau du total précédent
     if (compare && prevK && byPeriod[prevK]) {
-      const prevTotalH = SUBTYPES.reduce((s,sub)=>{
-        const v = byPeriod[prevK][sub]||0;
-        return s + (v > 0 ? (v/maxVal)*cH : 0);
-      }, 0);
       const prevTotalV = SUBTYPES.reduce((s,sub)=>s+(byPeriod[prevK][sub]||0), 0);
-      if (prevTotalH > 0) {
-        const bx = (cx - grpW*1.1).toFixed(1);
-        const by = (pad.top + cH - prevTotalH).toFixed(1);
-        // Corps gris neutre
-        svg += `<rect x="${bx}" y="${by}" width="${grpW.toFixed(1)}" height="${prevTotalH.toFixed(1)}" fill="rgba(255,255,255,0.07)" rx="2"/>`;
-        // Bordure du haut colorée (dominant activity)
-        const domSub = SUBTYPES.reduce((a,b)=>(byPeriod[prevK][b]||0)>(byPeriod[prevK][a]||0)?b:a, SUBTYPES[0]);
-        svg += `<rect x="${bx}" y="${by}" width="${grpW.toFixed(1)}" height="2" fill="${SUB_COL[domSub]}" opacity="0.6" rx="1"/>`;
-        // Montant total en haut
-        if (prevTotalH > 16) {
-          const fK = v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
-          svg += `<text x="${(cx-grpW*0.6).toFixed(1)}" y="${(pad.top+cH-prevTotalH-4).toFixed(1)}" fill="rgba(255,255,255,0.3)" font-size="8" text-anchor="middle">${fK(prevTotalV)}</text>`;
-        }
+      if (prevTotalV > 0) {
+        const lineY = (pad.top + cH - (prevTotalV/maxVal)*cH).toFixed(1);
+        const x1 = (cx - grpW/2 - 2).toFixed(1);
+        const x2 = (cx + grpW/2 + 2).toFixed(1);
+        const fK = v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
+        const prevLbl = new Date(prevK+(_caGran==='semaine'?'':'-15')).toLocaleDateString('fr-FR',{month:'short'});
+        // Ligne pointillée blanche
+        svg += `<line x1="${x1}" y1="${lineY}" x2="${x2}" y2="${lineY}" stroke="rgba(255,255,255,0.55)" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+        // Petit losange au centre
+        svg += `<polygon points="${cx},${(parseFloat(lineY)-4).toFixed(1)} ${(parseFloat(cx)+4).toFixed(1)},${lineY} ${cx},${(parseFloat(lineY)+4).toFixed(1)} ${(parseFloat(cx)-4).toFixed(1)},${lineY}" fill="rgba(255,255,255,0.45)"/>`;
+        // Montant + mois en étiquette
+        svg += `<text x="${(parseFloat(x2)+4).toFixed(1)}" y="${(parseFloat(lineY)+4).toFixed(1)}" fill="rgba(255,255,255,0.4)" font-size="8">${fK(prevTotalV)}</text>`;
       }
     }
 
@@ -2629,7 +2624,7 @@ window.renderCAChart = function() {
       const v = byPeriod[k]?.[sub]||0;
       if (v <= 0) return;
       const h = (v/maxVal)*cH;
-      svg += `<rect x="${(cx - (compare && prevK ? grpW*0.1 : grpW/2)).toFixed(1)}" y="${(yBot-h).toFixed(1)}" width="${grpW.toFixed(1)}" height="${h.toFixed(1)}" fill="${SUB_COL[sub]}" opacity="0.88" rx="1"/>`;
+      svg += `<rect x="${(cx - grpW/2).toFixed(1)}" y="${(yBot-h).toFixed(1)}" width="${grpW.toFixed(1)}" height="${h.toFixed(1)}" fill="${SUB_COL[sub]}" opacity="0.88" rx="1"/>`;
       yBot -= h;
     });
     // Tooltip zone
@@ -2655,7 +2650,7 @@ window.renderCAChart = function() {
     .map(s => `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.55)"><div style="width:9px;height:9px;border-radius:2px;background:${SUB_COL[s]};flex-shrink:0"></div>${SUB_LBL[s]} <span style="color:rgba(255,255,255,0.35)">${fmtEur(totals[s])}</span></div>`)
     .join('');
   if (compare && usedPrevKeys.length) {
-    legendHtml += `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.35);margin-left:8px;padding-left:8px;border-left:1px solid var(--border)"><div style="width:9px;height:9px;border-radius:2px;background:rgba(255,255,255,0.2);flex-shrink:0"></div>P\u00e9riode pr\u00e9c. (${fmtRange(usedPrevKeys)})</div>`;
+    legendHtml += `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.4);margin-left:8px;padding-left:8px;border-left:1px solid var(--border)"><svg width="18" height="10"><line x1="0" y1="5" x2="18" y2="5" stroke="rgba(255,255,255,0.55)" stroke-width="1.5" stroke-dasharray="3,2"/><polygon points="9,1 13,5 9,9 5,5" fill="rgba(255,255,255,0.45)"/></svg>&nbsp;P\u00e9riode pr\u00e9c. (${fmtRange(usedPrevKeys)})</div>`;
   }
   legEl.innerHTML = legendHtml;
 
