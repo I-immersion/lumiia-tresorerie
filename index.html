@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.42</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.44</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.42</div>
+      <div class="header-version">v3.44</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -711,7 +711,7 @@ function renderCashflowChart(txs) {
     return;
   }
 
-  // ── Agréger par mois (TOUTES les données, pas filtrées) ──
+  // ── Agréger par mois (TOUTES les données disponibles) ──
   const byMonth = {};
   txs.forEach(t => {
     const m = t.date.substring(0,7);
@@ -719,10 +719,19 @@ function renderCashflowChart(txs) {
     const a = parseFloat(t.amount);
     if (a > 0) byMonth[m].in += a; else byMonth[m].out += Math.abs(a);
   });
-  const monthKeys = Object.keys(byMonth).sort();
+  const allMonthKeys = Object.keys(byMonth).sort();
   const nowKey = (new Date()).toISOString().substring(0,7);
 
-  // ── Données passé + projection ──
+  // ── Fenêtre visible selon la période sélectionnée ──
+  const PERIOD_MONTHS_MAP = {'1m':1,'3m':3,'6m':6,'12m':12};
+  const visibleMonths = PERIOD_MONTHS_MAP[currentPeriod] || 6;
+  // Inclure le mois en cours dans la fenêtre
+  const cutoffDate = new Date();
+  cutoffDate.setMonth(cutoffDate.getMonth() - visibleMonths);
+  const cutoffKey = cutoffDate.toISOString().substring(0,7);
+  const monthKeys = allMonthKeys.filter(m => m >= cutoffKey);
+
+  // ── Données passé ──
   const pastData = monthKeys.map(m => ({
     key: m,
     net: byMonth[m].in - byMonth[m].out,
@@ -730,15 +739,21 @@ function renderCashflowChart(txs) {
     label: new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short',year:'2-digit'})
   }));
 
-  // Projection 2 mois : moyenne nette des 3 derniers mois passés
+  // ── Projection 3 mois : moyenne CA + charges connues ──
   const pastComplete = pastData.filter(d => !d.isCurrent);
-  const last3 = pastComplete.slice(-3);
-  const avgNet = last3.length ? last3.reduce((s,d)=>s+d.net,0)/last3.length : 0;
+  // Moyenne des entrées sur les 3 derniers mois complets
+  const last3in = pastComplete.slice(-3);
+  const avgIn = last3in.length ? last3in.reduce((s,d)=>s+byMonth[d.key].in,0)/last3in.length : 0;
+  // Charges mensuelles connues depuis Firebase
+  const chargesMensuellesConnues = Object.values(_cd||{})
+    .filter(c=>c.periodicity!=='ponctuel')
+    .reduce((s,c)=>s+monthlyVal(c),0);
+  const projectedNet = avgIn - (chargesMensuellesConnues || last3in.reduce((s,d)=>s+byMonth[d.key].out,0)/(last3in.length||1));
   const futureData = [];
-  for (let i = 1; i <= 2; i++) {
+  for (let i = 1; i <= 3; i++) {
     const d = new Date(new Date(nowKey+'-01').setMonth(new Date(nowKey+'-01').getMonth()+i));
     const k = d.toISOString().substring(0,7);
-    futureData.push({key:k, net:avgNet, label:d.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'}), isFuture:true});
+    futureData.push({key:k, net:projectedNet, label:d.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'}), isFuture:true});
   }
 
   const allData = [...pastData, ...futureData];
@@ -867,42 +882,54 @@ const EXCLUDED_EXPENSE_CATS = new Set(['Virements internes','Pr\u00e9l\u00e8veme
 
 function labelExpense(label) {
   if (!label) return 'Autres charges';
-  // Exclusions : pas des charges P&L
-  if (/i-immersion|virement interne|vir.*interne|\binterne\b/i.test(label)) return null;
-  if (/releve carte|prlv.*carte|pr\u00e9l\u00e8v.*carte/i.test(label)) return null;
-  if (/retrait dab|retrait espece/i.test(label)) return null;
-  if (/\bvir\b.*f[0-9]{3,}|vir [0-9]{6}/i.test(label) && !/location|loyer|studio|bar/i.test(label)) return null;
-  // Catégories opérationnelles
-  if (/loyer|bail|location|vir.*location|vir.*bar.*studi|vir.*a3|vir.*a4|f2026[0-9]{6,}/i.test(label)) return 'Loyer';
-  if (/assurance/i.test(label)) return 'Assurances';
-  if (/edf|engie|\bgaz\b|electr|\beau\b|suez|energie/i.test(label)) return '\u00c9lectricit\u00e9 & eau';
-  if (/salaire|paie|urssaf|cotis|social|marion|aurelie|duizabo|hurtado/i.test(label)) return 'Salaires & charges';
-  if (/tipi|portage|houy|sylvain|prestataire|sous.trait/i.test(label)) return 'Sous-traitants';
-  if (/jean louis.*biere|la biere|prlv sepa.*biere|metro|cave|brasserie|crest|boisson|alimentation/i.test(label)) return 'Achats boissons';
-  if (/intermarche|leclerc|mcc: 541/i.test(label)) return 'Achats bar';
-  if (/amazon(?! pay)|microsoft|google|adobe|logiciel|saas|licence|pennylane|force7|sendin|anthropic/i.test(label)) return 'Logiciels & SaaS';
-  if (/orange|sfr|bouygues|free|gpca|\btel\b|telecom|internet/i.test(label)) return 'T\u00e9l\u00e9phone & Internet';
-  if (/ech pret|ech pr\u00eat|emprunt|taux=|cic.*int|amortiss/i.test(label)) return 'Cr\u00e9dits';
-  if (/frais|agios|commission|bank/i.test(label)) return 'Frais bancaires';
-  if (/manomano|bricolag|mcc: 572|action\b.*mcc|mcc: 531|achat.*deco|amazon pay|aliexpress|fnac/i.test(label)) return 'Achats & mat\u00e9riel';
-  if (/restaur|traiteur|repas|mcc: 5812|mcc: 5814/i.test(label)) return 'Restauration';
-  if (/deplac|km|kilometr|carburant|essence|parking|transport/i.test(label)) return 'D\u00e9placements';
-  if (/veziant|communication|communication|acoce/i.test(label)) return 'Communication';
+  const l = label;
+  // ── Exclure : pas des charges P&L ──
+  if (/i-immersion|virement interne|vir.*interne|\binterne\b/i.test(l)) return null;
+  if (/releve carte|prlv.*carte|pr\u00e9l\u00e8v.*carte/i.test(l)) return null;
+  if (/retrait dab|retrait espece/i.test(l)) return null;
+  if (/\bvir\b.*\bf[0-9]{2,}/i.test(l) && !/location|loyer|studio|bar|avril|a3|a4/i.test(l)) return null;
+  // ── Charges op\u00e9rationnelles ──
+  if (/loyer|bail|vir.*location|vir.*bar.*studi|vir.*a3|vir.*a4|f2026[0-9]{6,}/i.test(l)) return 'Loyer';
+  if (/assurance/i.test(l)) return 'Assurances';
+  if (/edf|engie|\bgaz\b|electr|\beau\b|suez/i.test(l)) return '\u00c9lectricit\u00e9 & eau';
+  if (/salaire|paie|urssaf|cotis|social|marion|aurelie|duizabo|hurtado/i.test(l)) return 'Salaires & charges';
+  if (/tipi|portage|houy|sylvain|prestataire|sous.trait/i.test(l)) return 'Sous-traitants';
+  if (/jean louis.*biere|la biere|prlv sepa.*biere|metro|cave|brasserie|crest|boisson/i.test(l)) return 'Achats boissons';
+  if (/intermarche|leclerc|mcc: 541|epicerie/i.test(l)) return 'Achats bar & resto';
+  if (/mcc: 5813|mcc: 5812|mcc: 5462|bar mc |restaurant|traiteur|\bbourse\b/i.test(l)) return 'Achats bar & resto';
+  if (/rudaso|restaur.*recep/i.test(l)) return 'Achats bar & resto';
+  if (/sqsp|squarespace|mcc: 7372|monthly fee|subscription period|basic plan|fee for extra/i.test(l)) return 'Logiciels & SaaS';
+  if (/amazon(?! pay)|microsoft|google|adobe|logiciel|saas|licence|pennylane|force7|sendin|anthropic/i.test(l)) return 'Logiciels & SaaS';
+  if (/orange|sfr|bouygues|free|gpca|\btel\b|telecom|internet/i.test(l)) return 'T\u00e9l\u00e9phone & Internet';
+  if (/ech pret|ech pr\u00eat|emprunt|taux=|cic.*int/i.test(l)) return 'Cr\u00e9dits';
+  if (/frais|agios|commission/i.test(l)) return 'Frais bancaires';
+  if (/manomano|bricolag|mcc: 572|action\b.*mcc|mcc: 531|achat.*deco|aliexpress|fnac/i.test(l)) return 'Achats & mat\u00e9riel';
+  if (/deplac|km|kilometr|carburant|parking/i.test(l)) return 'D\u00e9placements';
+  if (/veziant|communication|acoce/i.test(l)) return 'Communication';
+  if (/fact sgt/i.test(l)) return 'Fournitures';
   return 'Autres charges';
 }
 
+
 function labelEncaissement(label) {
   if (!label) return null;
-  if (/depot.*esp|remise.*esp|espece|esp\b.*\d|cash deposit/i.test(label)) return 'Esp\u00e8ces';
-  if (/yavin|tpe\b/i.test(label)) return 'TPE';
-  if (/charge:/i.test(label)) return '\u00c9v\u00e9nements';
-  if (/stripe/i.test(label)) return '\u00c9v\u00e9nements';
-  if (/vir sgc|sg\b.*bar|virement.*bar/i.test(label)) return 'Virements SGC';
-  if (/lokanga|herbarom/i.test(label)) return 'Studios';
-  if (/virement|vrst|vir\b/i.test(label)) return 'Virements re\u00e7us';
-  if (/depot|cheque|chq/i.test(label)) return 'Ch\u00e8ques & d\u00e9p\u00f4ts';
-  return null; // ignorer ce qu'on ne comprend pas
+  // Exclure les flux non-revenus
+  if (/pret\b|pr\u00eat|emprunt|remboursement|virement interne|\binterne\b/i.test(label)) return null;
+  if (/i-immersion(?!.*yavin)|^i-immersion$/i.test(label)) return null; // Virement interne sauf si Yavin
+  if (/aurelie hurtado|duizabo|marion/i.test(label)) return null; // remboursements salariés
+  // Modes d'encaissement
+  if (/yavin/i.test(label)) return 'TPE \/ CB';
+  if (/vir sgc|sgc.*crest|vir.*sgc/i.test(label)) return 'TPE \/ CB'; // SGC = terminal CB
+  if (/depot.*esp|remise.*esp|espece|\bespeces\b|versement esp/i.test(label)) return 'Esp\u00e8ces';
+  if (/rem chq|remise chq|cheque|ch\u00e8que/i.test(label)) return 'Ch\u00e8ques';
+  if (/depot distributeur/i.test(label)) return 'D\u00e9p\u00f4ts'; // CHQ ou ESP mixin
+  if (/vrst ref|virement.*ref|paiement.*ref/i.test(label)) return 'Virements clients';
+  if (/vir inst|vir.*facture|virement.*acompte/i.test(label)) return 'Virements clients';
+  if (/stripe|charge:/i.test(label)) return '\u00c9v\u00e9nements';
+  if (/lokanga|herbarom/i.test(label)) return 'Studios'; // gardé dans encaissements mais séparé
+  return null; // tout le reste ignoré silencieusement
 }
+
 
 function renderDonut(txs) {
   const filtered = filterByPeriod(txs);
@@ -939,7 +966,7 @@ function renderDonut(txs) {
     }
     const COLORS = [COLORS_CA.bar, COLORS_CA.studios, COLORS_CA.activites, COLORS_CA.tickets, COLORS_CA.b2b, COLORS_CA.privatisation];
     const items = all.map(([k,v],i) => [SUB_LABELS[k]||k, v, COLORS[i]||'#94a3b8']);
-    renderDonutSVG(items, grandTotal, 'CA total', fmtK);
+    renderDonutSVG(items, grandTotal, 'CA nov.25+', fmtK);
     return;
   }
 
@@ -1219,20 +1246,33 @@ async function load() {
     const h = { Authorization:`Bearer ${token}` };
     const dateFrom = periodDateFrom('3m');
 
-    const [banksRes, txRes] = await Promise.all([
+    // Banques en parallèle avec 1ère page transactions
+    const [banksRes, tx1Res] = await Promise.all([
       fetch(`${PROXY}/bank_accounts`,{headers:h}),
-      fetch(`${PROXY}/transactions?limit=100`,{headers:h}),
+      fetch(`${PROXY}?endpoint=transactions&limit=100`,{headers:h}),
     ]);
     const banks = (await banksRes.json()).items || [];
-    const txs   = (await txRes.json()).items || [];
-    allTransactions = txs;
+    const tx1 = await tx1Res.json();
+    let allTx = tx1.items || [];
+
+    // Paginer jusqu'à septembre 2025 (max 8 pages = 800 tx)
+    let cursor = tx1.next_cursor;
+    for (let p = 1; p < 8 && cursor && tx1.has_more !== false; p++) {
+      const dn = await fetch(`${PROXY}?endpoint=transactions&limit=100&cursor=${encodeURIComponent(cursor)}`,{headers:h}).then(r=>r.json());
+      if (!dn.items?.length) break;
+      allTx = allTx.concat(dn.items);
+      cursor = dn.next_cursor;
+      const oldest = allTx[allTx.length-1]?.date || '';
+      if (oldest < '2025-09-01' || !dn.has_more) break;
+    }
+    allTransactions = allTx;
 
     const [invs, sups] = await reloadInvoices(dateFrom, null);
 
     renderBanks(banks);
-    renderCharts(txs);
+    renderCharts(allTx);
     renderKPIs(invs, sups, '3m');
-    renderTxList(txs);
+    renderTxList(allTx);
 
   } catch(e) {
     document.getElementById('syncBadge').textContent = '\u2717 Erreur de connexion';
@@ -1272,7 +1312,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.42
+// FOURNISSEURS — v3.44
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1509,7 +1549,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.42
+// COMPARATIF CA / CHARGES — v3.44
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -1998,7 +2038,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.42
+// ANALYSE CA — v3.44
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
