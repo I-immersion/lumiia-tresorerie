@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.59</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.60</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.59</div>
+      <div class="header-version">v3.60</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1623,7 +1623,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.59
+// FOURNISSEURS — v3.60
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1871,7 +1871,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.59
+// COMPARATIF CA / CHARGES — v3.60
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2371,7 +2371,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.59
+// ANALYSE CA — v3.60
 let _caGran = 'semaine'; // 'semaine' | 'mois'
 let _caWin  = 8;         // nombre de semaines ou de mois à afficher
 
@@ -2639,17 +2639,41 @@ window.renderCAChart = function() {
   // Légende
   const totals = {};
   SUBTYPES.forEach(s => { totals[s] = currentKeys.reduce((sum,k)=>sum+(byPeriod[k]?.[s]||0),0); });
-  legEl.innerHTML = SUBTYPES
+  let legendHtml = SUBTYPES
     .filter(s => totals[s] > 0)
     .map(s => `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.55)"><div style="width:9px;height:9px;border-radius:2px;background:${SUB_COL[s]};flex-shrink:0"></div>${SUB_LBL[s]} <span style="color:rgba(255,255,255,0.35)">${fmtEur(totals[s])}</span></div>`)
     .join('');
+  if (compare && usedPrevKeys.length) {
+    legendHtml += `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.35);margin-left:8px;padding-left:8px;border-left:1px solid var(--border)"><div style="width:9px;height:9px;border-radius:2px;background:rgba(255,255,255,0.2);flex-shrink:0"></div>P\u00e9riode pr\u00e9c. (${fmtRange(usedPrevKeys)})</div>`;
+  }
+  legEl.innerHTML = legendHtml;
 
-  // Sous-titre
+  // Sous-titre avec dates explicites
   const totalCA = currentKeys.reduce((s,k)=>s+SUBTYPES.reduce((ss,sub)=>ss+(byPeriod[k]?.[sub]||0),0),0);
-  const prevTotal = prevKeys.length ? prevKeys.slice(-currentKeys.length).reduce((s,k)=>s+SUBTYPES.reduce((ss,sub)=>ss+(byPeriod[k]?.[sub]||0),0),0) : 0;
+  const usedPrevKeys = prevKeys.slice(-currentKeys.length);
+  const prevTotal = usedPrevKeys.length ? usedPrevKeys.reduce((s,k)=>s+SUBTYPES.reduce((ss,sub)=>ss+(byPeriod[k]?.[sub]||0),0),0) : 0;
   const evol = prevTotal > 0 ? ((totalCA-prevTotal)/prevTotal*100) : null;
-  subEl.innerHTML = `CA identifi\u00e9 sur la p\u00e9riode\u00a0: <strong style="color:var(--accent)">${fmtEur(totalCA)}</strong>`
-    + (evol !== null ? ` &bull; <span style="color:${evol>=0?'var(--accent)':'var(--danger)'}">${evol>=0?'+':''}${evol.toFixed(0)}%</span> vs p\u00e9riode pr\u00e9c.` : '');
+
+  // Formater les plages de dates lisibles
+  const fmtRange = keys => {
+    if (!keys.length) return '';
+    const first = new Date(keys[0]+(_caGran==='semaine'?'':'-15'));
+    const last  = new Date(keys[keys.length-1]+(_caGran==='semaine'?'':'-15'));
+    const opts  = _caGran === 'semaine'
+      ? {day:'2-digit',month:'short'}
+      : {month:'short',year:'2-digit'};
+    return first.toLocaleDateString('fr-FR',opts) + '\u00a0\u2192\u00a0' + last.toLocaleDateString('fr-FR',opts);
+  };
+
+  const currentRange = fmtRange(currentKeys);
+  const prevRange    = fmtRange(usedPrevKeys);
+
+  let sub = `<strong style="color:var(--text)">${currentRange}</strong>\u00a0\u00b7\u00a0CA\u00a0: <strong style="color:var(--accent)">${fmtEur(totalCA)}</strong>`;
+  if (compare && usedPrevKeys.length) {
+    sub += `<span style="margin-left:10px;color:var(--muted2)">vs <strong style="color:rgba(255,255,255,0.45)">${prevRange}</strong>\u00a0${fmtEur(prevTotal)}</span>`;
+    if (evol !== null) sub += `\u00a0<span style="color:${evol>=0?'var(--accent)':'var(--danger)'};font-weight:600">${evol>=0?'+':''}${evol.toFixed(0)}%</span>`;
+  }
+  subEl.innerHTML = sub;
 };
 
 
