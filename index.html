@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.57</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.58</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.57</div>
+      <div class="header-version">v3.58</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -438,9 +438,34 @@
 
 <div id="tabContentAnalyse" style="display:none">
   <div class="content" style="padding-top:16px">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:16px">
-      <div class="section-title" style="margin-bottom:0">Chiffre d'affaires depuis novembre 2025</div>
-      <button id="btnScanCA" onclick="window._loadAnalyse()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px;cursor:pointer">&#8635; Actualiser</button>
+    <!-- GRAPHIQUE CA HEBDOMADAIRE / MENSUEL -->
+    <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
+      <div class="section-title" style="margin-bottom:0">CA par activit&eacute;</div>
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <div class="period-btns">
+          <button class="period-btn active" data-cagran="semaine" onclick="setCAGran('semaine')">Semaines</button>
+          <button class="period-btn" data-cagran="mois" onclick="setCAGran('mois')">Mois</button>
+        </div>
+        <div class="period-btns">
+          <button class="period-btn active" data-cawin="8" onclick="setCAWin(8)">8 sem.</button>
+          <button class="period-btn" data-cawin="12" onclick="setCAWin(12)">12 sem.</button>
+          <button class="period-btn" data-cawin="24" onclick="setCAWin(24)">6 mois</button>
+        </div>
+        <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted2);cursor:pointer;white-space:nowrap">
+          <input type="checkbox" id="caCompare" onchange="renderCAChart()" style="accent-color:var(--accent)"> Comparer p&eacute;riode pr&eacute;c.
+        </label>
+        <button id="btnScanCA" onclick="window._loadAnalyse()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px;cursor:pointer">&#8635; Actualiser</button>
+      </div>
+    </div>
+    <div class="chart-card" style="padding:16px 20px;margin-bottom:24px">
+      <div id="caChartSub" style="font-size:11px;color:var(--muted2);margin-bottom:12px"></div>
+      <div id="caWeeklyChart" style="width:100%;min-height:160px"></div>
+      <div id="caWeeklyLegend" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:12px;padding-top:12px;border-top:1px solid var(--border)"></div>
+    </div>
+
+    <!-- GRAPHIQUE MENSUEL EXISTANT -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+      <div class="section-title" style="margin-bottom:0">CA mensuel total</div>
     </div>
     <div id="analyseCAChart" style="margin-bottom:24px"></div>
     <div class="section-title" style="margin-bottom:12px">Transactions à qualifier <span id="analyseQualifyCount" style="font-size:11px;color:var(--warn);font-weight:400"></span></div>
@@ -1527,6 +1552,10 @@ async function load() {
     renderKPIs(invs, sups, currentPeriod);
     renderTxList(allTx);
 
+    // Charger l'Analyse CA en arrière-plan (non bloquant)
+    // Alimente le donut CA activités et le comparatif sans ouvrir l'onglet
+    setTimeout(() => { try { window._loadAnalyse(); } catch(e) { console.warn('auto-loadAnalyse', e); } }, 800);
+
   } catch(e) {
     document.getElementById('syncBadge').textContent = '\u2717 Erreur de connexion';
     document.getElementById('syncBadge').className = 'badge err';
@@ -1565,7 +1594,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.57
+// FOURNISSEURS — v3.58
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1813,7 +1842,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.57
+// COMPARATIF CA / CHARGES — v3.58
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2313,7 +2342,178 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.57
+// ANALYSE CA — v3.58
+let _caGran = 'semaine'; // 'semaine' | 'mois'
+let _caWin  = 8;         // nombre de semaines ou de mois à afficher
+
+window.setCAGran = function(g) {
+  _caGran = g;
+  document.querySelectorAll('[data-cagran]').forEach(b => b.classList.toggle('active', b.dataset.cagran === g));
+  if (g === 'mois') {
+    document.querySelectorAll('[data-cawin]').forEach(b => {
+      b.textContent = b.dataset.cawin === '8' ? '3M' : b.dataset.cawin === '12' ? '6M' : '12M';
+    });
+    if (_caWin > 12) _caWin = 12;
+  } else {
+    document.querySelectorAll('[data-cawin]').forEach(b => {
+      b.textContent = b.dataset.cawin === '8' ? '8 sem.' : b.dataset.cawin === '12' ? '12 sem.' : '6 mois';
+    });
+  }
+  renderCAChart();
+};
+
+window.setCAWin = function(w) {
+  _caWin = parseInt(w);
+  document.querySelectorAll('[data-cawin]').forEach(b => b.classList.toggle('active', parseInt(b.dataset.cawin) === _caWin));
+  renderCAChart();
+};
+
+function getISOWeek(date) {
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
+  d.setUTCDate(d.getUTCDate() + 4 - (d.getUTCDay()||7));
+  const yearStart = new Date(Date.UTC(d.getUTCFullYear(),0,1));
+  return {week: Math.ceil((((d-yearStart)/86400000)+1)/7), year: d.getUTCFullYear()};
+}
+
+function getWeekStartStr(date) {
+  const d = new Date(date);
+  const day = d.getDay() || 7;
+  d.setDate(d.getDate() - day + 1);
+  return d.toISOString().substring(0,10);
+}
+
+window.renderCAChart = function() {
+  const el      = document.getElementById('caWeeklyChart');
+  const legEl   = document.getElementById('caWeeklyLegend');
+  const subEl   = document.getElementById('caChartSub');
+  const compare = document.getElementById('caCompare')?.checked;
+  if (!el) return;
+
+  const txs     = window._cachedTx || [];
+  const classes = window._txClassifications_public || {};
+  if (!txs.length) {
+    el.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:30px 0">Actualiser l\u2019Analyse CA pour afficher</div>';
+    return;
+  }
+
+  const SUBTYPES = ['bar','studios','activites','tickets','b2b','privatisation'];
+  const SUB_COL  = {bar:'#f59e0b',studios:'#a78bfa',activites:'#22d3ee',tickets:'#fb7185',b2b:'#60a5fa',privatisation:'#34d399'};
+  const SUB_LBL  = {bar:'\ud83c\udfba Bar',studios:'\ud83c\udfb9 Studios',activites:'\ud83c\udfaa Activit\u00e9s',tickets:'\ud83c\udfab Tickets',b2b:'\ud83c\udfe2 B2B',privatisation:'\ud83c\udf86 Privatisation'};
+  const fmtK     = v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
+  const fmtEur   = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+
+  // ── Agréger par période ──
+  function aggregate(transactions) {
+    const by = {};
+    transactions.forEach(t => {
+      const saved = classes[String(t.id)];
+      if (!saved || saved.type !== 'ca' || !saved.subtype) return;
+      const sub = SUBTYPES.includes(saved.subtype) ? saved.subtype : null;
+      if (!sub) return;
+      const d = new Date(t.date);
+      const key = _caGran === 'semaine' ? getWeekStartStr(d) : t.date.substring(0,7);
+      if (!by[key]) { by[key] = {}; SUBTYPES.forEach(s => by[key][s] = 0); }
+      by[key][sub] = (by[key][sub]||0) + parseFloat(t.amount);
+    });
+    return by;
+  }
+
+  const byPeriod = aggregate(txs);
+  const allKeys  = Object.keys(byPeriod).sort();
+
+  // Fenêtre courante
+  const n = _caGran === 'semaine' ? _caWin : (_caWin === 8 ? 3 : _caWin === 12 ? 6 : 12);
+  const currentKeys = allKeys.slice(-n);
+  if (!currentKeys.length) {
+    el.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:30px 0">Aucune donn\u00e9e classifi\u00e9e</div>';
+    return;
+  }
+
+  // Période précédente (même durée, juste avant)
+  const prevKeys = allKeys.slice(-n*2, -n);
+
+  // ── SVG ──
+  const W = Math.max(el.clientWidth||500, 300);
+  const H = 170;
+  const pad = {left:42, right:10, top:14, bottom:26};
+  const cW = W - pad.left - pad.right;
+  const cH = H - pad.top - pad.bottom;
+  const slotW = cW / currentKeys.length;
+  const grpW  = compare && prevKeys.length ? slotW * 0.44 : slotW * 0.65;
+  const maxVal = Math.max(
+    ...currentKeys.map(k => SUBTYPES.reduce((s,sub)=>s+(byPeriod[k]?.[sub]||0),0)),
+    ...(compare && prevKeys.length ? prevKeys.map(k => SUBTYPES.reduce((s,sub)=>s+(byPeriod[k]?.[sub]||0),0)) : []),
+    1
+  );
+
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">`;
+
+  // Grille
+  [0,0.25,0.5,0.75,1].forEach(f => {
+    const y = pad.top + cH*(1-f);
+    svg += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${W-pad.right}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
+    if(f>0) svg += `<text x="${pad.left-4}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.2)" font-size="9">${fmtK(maxVal*f)}</text>`;
+  });
+
+  // Barres
+  currentKeys.forEach((k, i) => {
+    const cx  = pad.left + i*slotW + slotW/2;
+    const prevK = prevKeys[prevKeys.length - currentKeys.length + i];
+
+    // Période précédente (si compare activé)
+    if (compare && prevK && byPeriod[prevK]) {
+      let yBot = pad.top + cH;
+      SUBTYPES.forEach(sub => {
+        const v = byPeriod[prevK][sub]||0;
+        if (v <= 0) return;
+        const h = (v/maxVal)*cH;
+        svg += `<rect x="${(cx-grpW*1.1).toFixed(1)}" y="${(yBot-h).toFixed(1)}" width="${grpW.toFixed(1)}" height="${h.toFixed(1)}" fill="${SUB_COL[sub]}" opacity="0.28" rx="1"/>`;
+        yBot -= h;
+      });
+    }
+
+    // Période courante
+    let yBot = pad.top + cH;
+    const total = SUBTYPES.reduce((s,sub)=>s+(byPeriod[k]?.[sub]||0),0);
+    SUBTYPES.forEach(sub => {
+      const v = byPeriod[k]?.[sub]||0;
+      if (v <= 0) return;
+      const h = (v/maxVal)*cH;
+      svg += `<rect x="${(cx - (compare && prevK ? grpW*0.1 : grpW/2)).toFixed(1)}" y="${(yBot-h).toFixed(1)}" width="${grpW.toFixed(1)}" height="${h.toFixed(1)}" fill="${SUB_COL[sub]}" opacity="0.88" rx="1"/>`;
+      yBot -= h;
+    });
+    // Tooltip zone
+    const d = new Date(k);
+    const lbl = _caGran === 'semaine'
+      ? 'S'+getISOWeek(d).week+' ('+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+')'
+      : d.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'});
+    svg += `<rect x="${(pad.left+i*slotW).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${cH}" fill="transparent" style="cursor:pointer"
+      onmouseover="showTooltip(event,'${lbl}','${Math.round(total)}','0')"
+      onmouseout="hideTooltip()"/>`;
+    // Label
+    svg += `<text x="${cx.toFixed(1)}" y="${H-4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="8.5">${lbl.split(' ')[0]}</text>`;
+  });
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+
+  // Légende
+  const totals = {};
+  SUBTYPES.forEach(s => { totals[s] = currentKeys.reduce((sum,k)=>sum+(byPeriod[k]?.[s]||0),0); });
+  legEl.innerHTML = SUBTYPES
+    .filter(s => totals[s] > 0)
+    .map(s => `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.55)"><div style="width:9px;height:9px;border-radius:2px;background:${SUB_COL[s]};flex-shrink:0"></div>${SUB_LBL[s]} <span style="color:rgba(255,255,255,0.35)">${fmtEur(totals[s])}</span></div>`)
+    .join('');
+
+  // Sous-titre
+  const totalCA = currentKeys.reduce((s,k)=>s+SUBTYPES.reduce((ss,sub)=>ss+(byPeriod[k]?.[sub]||0),0),0);
+  const prevTotal = prevKeys.length ? prevKeys.slice(-currentKeys.length).reduce((s,k)=>s+SUBTYPES.reduce((ss,sub)=>ss+(byPeriod[k]?.[sub]||0),0),0) : 0;
+  const evol = prevTotal > 0 ? ((totalCA-prevTotal)/prevTotal*100) : null;
+  subEl.innerHTML = `CA identifi\u00e9 sur la p\u00e9riode\u00a0: <strong style="color:var(--accent)">${fmtEur(totalCA)}</strong>`
+    + (evol !== null ? ` &bull; <span style="color:${evol>=0?'var(--accent)':'var(--danger)'}">${evol>=0?'+':''}${evol.toFixed(0)}%</span> vs p\u00e9riode pr\u00e9c.` : '');
+};
+
+
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
@@ -2588,6 +2788,7 @@ window._loadAnalyse = async () => {
     _analyseLoaded = true;
     if(btn) { btn.textContent = '\u21bb Actualiser'; btn.disabled = false; }
     renderComparatif();
+    window.renderCAChart();
     if (currentDonutTab === 'ca') renderDonut(allTransactions);
   } catch(e) {
     console.error('loadAnalyse error', e.message, e.stack);
