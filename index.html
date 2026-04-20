@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.44</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.45</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.44</div>
+      <div class="header-version">v3.45</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -837,20 +837,34 @@ function renderCashflowChart(txs) {
   svg += `<line x1="${todayX.toFixed(1)}" y1="${pad.top}" x2="${todayX.toFixed(1)}" y2="${(pad.top+chartH).toFixed(1)}" stroke="rgba(255,255,255,0.18)" stroke-width="1" stroke-dasharray="4,3"/>`;
   svg += `<text x="${(todayX+4).toFixed(1)}" y="${(pad.top+10).toFixed(1)}" fill="rgba(255,255,255,0.35)" font-size="9">Auj.</text>`;
 
-  // Points passés
+  // Points passés + zones hover
   pastData.forEach((d,i) => {
     const isNeg = d.net < 0;
-    svg += `<circle cx="${xOf(i).toFixed(1)}" cy="${yOf(d.net).toFixed(1)}" r="${d.isCurrent?5:3.5}" fill="${isNeg?'#f87171':'#4ade80'}" stroke="#0d0f14" stroke-width="${d.isCurrent?2:1.5}"/>`;
+    const cx = xOf(i).toFixed(1), cy = yOf(d.net).toFixed(1);
+    const inAmt = byMonth[d.key]?.in || 0;
+    const outAmt = byMonth[d.key]?.out || 0;
+    const label = d.label + (d.isCurrent ? ' (en cours)' : '');
+    // Zone invisible large pour hover facile
+    svg += `<rect x="${(xOf(i)-slotW/2).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${chartH}" fill="transparent" style="cursor:pointer"
+      onmouseover="showTooltip(event,'${label}','${inAmt.toFixed(0)}','${outAmt.toFixed(0)}')"
+      onmouseout="hideTooltip()"/>`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="${d.isCurrent?5:3.5}" fill="${isNeg?'#f87171':'#4ade80'}" stroke="#0d0f14" stroke-width="${d.isCurrent?2:1.5}" style="pointer-events:none"/>`;
   });
 
-  // Points futurs
+  // Points futurs + zones hover
   futureData.forEach((d,i) => {
-    svg += `<circle cx="${xOf(futureOffset+i).toFixed(1)}" cy="${yOf(d.net).toFixed(1)}" r="3" fill="#60a5fa" stroke="#0d0f14" stroke-width="1.5" opacity="0.8"/>`;
+    const cx = xOf(futureOffset+i).toFixed(1), cy = yOf(d.net).toFixed(1);
+    const inEst = (byMonth[pastComplete.slice(-1)[0]?.key]?.in||0);
+    const outEst = chargesMensuellesConnues||0;
+    svg += `<rect x="${(xOf(futureOffset+i)-slotW/2).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${chartH}" fill="transparent" style="cursor:pointer"
+      onmouseover="showTooltip(event,'${d.label} (projection)','${inEst.toFixed(0)}','${outEst.toFixed(0)}')"
+      onmouseout="hideTooltip()"/>`;
+    svg += `<circle cx="${cx}" cy="${cy}" r="3" fill="#60a5fa" stroke="#0d0f14" stroke-width="1.5" opacity="0.8" style="pointer-events:none"/>`;
   });
 
   // Labels mois
   allData.forEach((d,i) => {
-    svg += `<text x="${xOf(i).toFixed(1)}" y="${H-4}" text-anchor="middle" fill="${d.isFuture?'rgba(96,165,250,0.4)':'rgba(255,255,255,0.25)'}" font-size="9">${d.label}</text>`;
+    svg += `<text x="${xOf(i).toFixed(1)}" y="${H-4}" text-anchor="middle" fill="${d.isFuture?'rgba(96,165,250,0.4)':'rgba(255,255,255,0.25)'}" font-size="9" style="pointer-events:none">${d.label}</text>`;
   });
 
   // Légende
@@ -923,10 +937,11 @@ function labelEncaissement(label) {
   if (/depot.*esp|remise.*esp|espece|\bespeces\b|versement esp/i.test(label)) return 'Esp\u00e8ces';
   if (/rem chq|remise chq|cheque|ch\u00e8que/i.test(label)) return 'Ch\u00e8ques';
   if (/depot distributeur/i.test(label)) return 'D\u00e9p\u00f4ts'; // CHQ ou ESP mixin
-  if (/vrst ref|virement.*ref|paiement.*ref/i.test(label)) return 'Virements clients';
+  if (/vrst ref/i.test(label)) return 'Esp\u00e8ces'; // VRST = VERSement esp\u00e8ces
+  if (/virement.*ref|paiement.*ref/i.test(label)) return 'Virements clients';
   if (/vir inst|vir.*facture|virement.*acompte/i.test(label)) return 'Virements clients';
   if (/stripe|charge:/i.test(label)) return '\u00c9v\u00e9nements';
-  if (/lokanga|herbarom/i.test(label)) return 'Studios'; // gardé dans encaissements mais séparé
+  if (/lokanga|herbarom/i.test(label)) return null; // Studios → CA activités, pas mode encaissement
   return null; // tout le reste ignoré silencieusement
 }
 
@@ -1312,7 +1327,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.44
+// FOURNISSEURS — v3.45
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1549,7 +1564,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.44
+// COMPARATIF CA / CHARGES — v3.45
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2038,7 +2053,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.44
+// ANALYSE CA — v3.45
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
