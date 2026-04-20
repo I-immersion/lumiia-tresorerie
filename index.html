@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.63</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.64</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.63</div>
+      <div class="header-version">v3.64</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -452,18 +452,30 @@
     <!-- GRAPHIQUE CA HEBDOMADAIRE / MENSUEL -->
     <div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:14px">
       <div class="section-title" style="margin-bottom:0">CA par activit&eacute;</div>
-      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+      <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div class="period-btns">
           <button class="period-btn active" data-cagran="semaine" onclick="setCAGran('semaine')">Semaines</button>
           <button class="period-btn" data-cagran="mois" onclick="setCAGran('mois')">Mois</button>
         </div>
-        <div class="period-btns">
-          <button class="period-btn active" data-cawin="8" onclick="setCAWin(8)">8 sem.</button>
-          <button class="period-btn" data-cawin="12" onclick="setCAWin(12)">12 sem.</button>
-          <button class="period-btn" data-cawin="24" onclick="setCAWin(24)">6 mois</button>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10.5px;color:var(--muted2);font-weight:600;white-space:nowrap">Pass&eacute;</span>
+          <div class="period-btns">
+            <button class="period-btn active" data-cawin="4" onclick="setCAWin(4)">4S</button>
+            <button class="period-btn" data-cawin="8" onclick="setCAWin(8)">8S</button>
+            <button class="period-btn" data-cawin="12" onclick="setCAWin(12)">3M</button>
+            <button class="period-btn" data-cawin="24" onclick="setCAWin(24)">6M</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10.5px;color:rgba(96,165,250,0.8);font-weight:600;white-space:nowrap">Pr&eacute;vision</span>
+          <div class="period-btns">
+            <button class="period-btn active" data-cafut="1" onclick="setCAFut(1)">1M</button>
+            <button class="period-btn" data-cafut="3" onclick="setCAFut(3)">3M</button>
+            <button class="period-btn" data-cafut="6" onclick="setCAFut(6)">6M</button>
+          </div>
         </div>
         <label style="display:flex;align-items:center;gap:5px;font-size:11.5px;color:var(--muted2);cursor:pointer;white-space:nowrap">
-          <input type="checkbox" id="caCompare" onchange="renderCAChart()" style="accent-color:var(--accent)"> Comparer p&eacute;riode pr&eacute;c.
+          <input type="checkbox" id="caCompare" onchange="renderCAChart()" style="accent-color:var(--accent)"> Comparer pr&eacute;c.
         </label>
         <button id="btnScanCA" onclick="window._loadAnalyse()" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-family:'DM Sans',sans-serif;font-size:12px;padding:5px 12px;cursor:pointer">&#8635; Actualiser</button>
       </div>
@@ -1623,7 +1635,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.63
+// FOURNISSEURS — v3.64
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1871,7 +1883,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.63
+// COMPARATIF CA / CHARGES — v3.64
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2371,21 +2383,25 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.63
+// ANALYSE CA — v3.64
 let _caGran = 'semaine'; // 'semaine' | 'mois'
-let _caWin  = 8;         // nombre de semaines ou de mois à afficher
+let _caWin  = 4;  // semaines ou mois passés à afficher
+let _caFut  = 1;  // mois futurs (prévisions) à afficher
 
 window.setCAGran = function(g) {
   _caGran = g;
   document.querySelectorAll('[data-cagran]').forEach(b => b.classList.toggle('active', b.dataset.cagran === g));
+  // En mode mois, labels du sélecteur Passé deviennent des mois
   if (g === 'mois') {
     document.querySelectorAll('[data-cawin]').forEach(b => {
-      b.textContent = b.dataset.cawin === '8' ? '3M' : b.dataset.cawin === '12' ? '6M' : '12M';
+      const v = b.dataset.cawin;
+      b.textContent = v==='4'?'1M':v==='8'?'2M':v==='12'?'3M':'6M';
     });
-    if (_caWin > 12) _caWin = 12;
+    if (_caWin > 12) _caWin = 6;
   } else {
     document.querySelectorAll('[data-cawin]').forEach(b => {
-      b.textContent = b.dataset.cawin === '8' ? '8 sem.' : b.dataset.cawin === '12' ? '12 sem.' : '6 mois';
+      const v = b.dataset.cawin;
+      b.textContent = v==='4'?'4S':v==='8'?'8S':v==='12'?'3M':'6M';
     });
   }
   renderCAChart();
@@ -2394,6 +2410,12 @@ window.setCAGran = function(g) {
 window.setCAWin = function(w) {
   _caWin = parseInt(w);
   document.querySelectorAll('[data-cawin]').forEach(b => b.classList.toggle('active', parseInt(b.dataset.cawin) === _caWin));
+  renderCAChart();
+};
+
+window.setCAFut = function(m) {
+  _caFut = parseInt(m);
+  document.querySelectorAll('[data-cafut]').forEach(b => b.classList.toggle('active', parseInt(b.dataset.cafut) === _caFut));
   renderCAChart();
 };
 
@@ -2577,10 +2599,8 @@ window.renderCAChart = function() {
   const allKeys  = Object.keys(byPeriod).sort();
 
   // Fenêtre courante
-  // Nombre de périodes à afficher
-  // En mode semaine : _caWin = nombre de semaines (8/12/24)
-  // En mode mois : _caWin = 8→3M, 12→6M, 24→12M
-  const MOIS_MAP = {8:3, 12:6, 24:12};
+  // Nombre de périodes passées
+  const MOIS_MAP = {4:1, 8:2, 12:3, 24:6};
   const n = _caGran === 'semaine' ? _caWin : (MOIS_MAP[_caWin] || 3);
   const currentKeys = allKeys.slice(-n);
   if (!currentKeys.length) {
@@ -2588,8 +2608,42 @@ window.renderCAChart = function() {
     return;
   }
 
-  // Période précédente (même durée, juste avant)
+  // Périodes futures (depuis _prevEstimates)
+  const estimates = window._prevEstimates || {};
+  const now = new Date();
+  const futureMonthKeys = [];
+  for (let i = 1; i <= _caFut; i++) {
+    const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+    futureMonthKeys.push(d.toISOString().substring(0,7));
+  }
+  // En mode semaine, convertir les mois prévus en semaines (approximation : 1 mois = 4 semaines)
+  const futurePeriodKeys = _caGran === 'semaine'
+    ? futureMonthKeys.flatMap(m => {
+        const d = new Date(m+'-01');
+        const weeks = [];
+        for (let w = 0; w < 4; w++) {
+          const wd = new Date(d.getFullYear(), d.getMonth(), 1 + w*7);
+          weeks.push(getWeekStartStr(wd));
+        }
+        return weeks.filter(k => k > currentKeys[currentKeys.length-1]);
+      })
+    : futureMonthKeys;
+
+  // Période précédente pour comparaison
   const prevKeys = allKeys.slice(-n*2, -n);
+
+  const allDisplayKeys = [...currentKeys, ...futurePeriodKeys];
+
+  // Max valeur pour échelle
+  const maxVal = Math.max(
+    ...currentKeys.map(k => SUBTYPES.reduce((s,sub)=>s+(byPeriod[k]?.[sub]||0),0)),
+    ...futurePeriodKeys.map(k => {
+      const m = k.substring(0,7);
+      return PREV_SUBTYPES.reduce((s,sub)=>s+(estimates[m]?.[sub]||0),0) / (_caGran==='semaine'?4:1);
+    }),
+    ...(compare && prevKeys.length ? prevKeys.map(k=>PREV_SUBTYPES.reduce((s,sub)=>s+(byPeriod[k]?.[sub]||0),0)) : []),
+    1
+  );
 
   // ── SVG ──
   const W = Math.max(el.clientWidth||500, 300);
@@ -2597,13 +2651,8 @@ window.renderCAChart = function() {
   const pad = {left:42, right:10, top:14, bottom:30};
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
-  const slotW = cW / currentKeys.length;
-  const grpW  = compare && prevKeys.length ? slotW * 0.44 : slotW * 0.65;
-  const maxVal = Math.max(
-    ...currentKeys.map(k => SUBTYPES.reduce((s,sub)=>s+(byPeriod[k]?.[sub]||0),0)),
-    ...(compare && prevKeys.length ? prevKeys.map(k => SUBTYPES.reduce((s,sub)=>s+(byPeriod[k]?.[sub]||0),0)) : []),
-    1
-  );
+  const slotW = cW / Math.max(allDisplayKeys.length, 1);
+  const grpW = slotW * 0.65;
 
   let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">`;
 
@@ -2615,57 +2664,81 @@ window.renderCAChart = function() {
   });
 
   // Barres
-  currentKeys.forEach((k, i) => {
-    const cx  = pad.left + i*slotW + slotW/2;
-    const prevK = prevKeys[prevKeys.length - currentKeys.length + i];
+  // Marqueur Aujourd'hui entre passé et futur
+  if (futurePeriodKeys.length > 0 && currentKeys.length > 0) {
+    const todayX = (pad.left + currentKeys.length * slotW).toFixed(1);
+    svg += `<line x1="${todayX}" y1="${pad.top}" x2="${todayX}" y2="${(pad.top+cH)}" stroke="rgba(255,255,255,0.3)" stroke-width="1.5" stroke-dasharray="5,3"/>`;
+    svg += `<text x="${(parseFloat(todayX)+4).toFixed(1)}" y="${(pad.top+11).toFixed(1)}" fill="rgba(255,255,255,0.4)" font-size="8.5">Auj.</text>`;
+  }
 
-    // Période précédente — ligne horizontale pointillée au niveau du total précédent
-    if (compare && prevK && byPeriod[prevK]) {
-      const prevTotalV = SUBTYPES.reduce((s,sub)=>s+(byPeriod[prevK][sub]||0), 0);
-      if (prevTotalV > 0) {
-        const lineY = (pad.top + cH - (prevTotalV/maxVal)*cH).toFixed(1);
-        const x1 = (cx - grpW/2 - 2).toFixed(1);
-        const x2 = (cx + grpW/2 + 2).toFixed(1);
-        const fK = v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
-        const prevLbl = new Date(prevK+(_caGran==='semaine'?'':'-15')).toLocaleDateString('fr-FR',{month:'short'});
-        // Ligne pointillée blanche
-        svg += `<line x1="${x1}" y1="${lineY}" x2="${x2}" y2="${lineY}" stroke="rgba(255,255,255,0.55)" stroke-width="1.5" stroke-dasharray="3,2"/>`;
-        // Petit losange au centre
-        svg += `<polygon points="${cx},${(parseFloat(lineY)-4).toFixed(1)} ${(parseFloat(cx)+4).toFixed(1)},${lineY} ${cx},${(parseFloat(lineY)+4).toFixed(1)} ${(parseFloat(cx)-4).toFixed(1)},${lineY}" fill="rgba(255,255,255,0.45)"/>`;
-        // Montant + mois en étiquette
-        svg += `<text x="${(parseFloat(x2)+4).toFixed(1)}" y="${(parseFloat(lineY)+4).toFixed(1)}" fill="rgba(255,255,255,0.4)" font-size="8">${fK(prevTotalV)}</text>`;
+  allDisplayKeys.forEach((k, i) => {
+    const cx = pad.left + i*slotW + slotW/2;
+    const isFuture = futurePeriodKeys.includes(k);
+    const monthKey = k.substring(0,7);
+
+    // Ligne verticale : tous les 4 semaines en mode semaine, chaque mois en mode mois
+    const showVLine = _caGran === 'semaine' ? (i > 0 && i % 4 === 0) : (i > 0);
+    if (showVLine) {
+      svg += `<line x1="${(pad.left+i*slotW).toFixed(1)}" y1="${pad.top}" x2="${(pad.left+i*slotW).toFixed(1)}" y2="${(pad.top+cH).toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>`;
+    }
+
+    // Comparaison période précédente (passé seulement)
+    if (!isFuture && compare) {
+      const prevK = prevKeys[prevKeys.length - currentKeys.length + i];
+      if (prevK && byPeriod[prevK]) {
+        const prevTotalV = SUBTYPES.reduce((s,sub)=>s+(byPeriod[prevK][sub]||0), 0);
+        if (prevTotalV > 0) {
+          const lineY = (pad.top + cH - (prevTotalV/maxVal)*cH).toFixed(1);
+          const x1 = (cx - grpW/2 - 2).toFixed(1);
+          const x2 = (cx + grpW/2 + 2).toFixed(1);
+          const fK = v => v>=1000?(v/1000).toFixed(1)+'k':Math.round(v)+'';
+          svg += `<line x1="${x1}" y1="${lineY}" x2="${x2}" y2="${lineY}" stroke="rgba(255,255,255,0.55)" stroke-width="1.5" stroke-dasharray="3,2"/>`;
+          svg += `<polygon points="${cx},${(parseFloat(lineY)-4).toFixed(1)} ${(parseFloat(cx)+4).toFixed(1)},${lineY} ${cx},${(parseFloat(lineY)+4).toFixed(1)} ${(parseFloat(cx)-4).toFixed(1)},${lineY}" fill="rgba(255,255,255,0.45)"/>`;
+        }
       }
     }
 
-    // Période courante
+    // Barres
     let yBot = pad.top + cH;
-    const total = SUBTYPES.reduce((s,sub)=>s+(byPeriod[k]?.[sub]||0),0);
-    SUBTYPES.forEach(sub => {
-      const v = byPeriod[k]?.[sub]||0;
-      if (v <= 0) return;
-      const h = (v/maxVal)*cH;
-      svg += `<rect x="${(cx - grpW/2).toFixed(1)}" y="${(yBot-h).toFixed(1)}" width="${grpW.toFixed(1)}" height="${h.toFixed(1)}" fill="${SUB_COL[sub]}" opacity="0.88" rx="1"/>`;
-      yBot -= h;
-    });
-    // Tooltip zone
+    let total = 0;
+    if (isFuture) {
+      // Barres prévisionnelles : valeurs mensuelles / 4 si semaines
+      const divider = _caGran === 'semaine' ? 4 : 1;
+      SUBTYPES.forEach(sub => {
+        const v = (estimates[monthKey]?.[sub]||0) / divider;
+        if (v <= 0) return;
+        const h = (v/maxVal)*cH;
+        svg += `<rect x="${(cx-grpW/2).toFixed(1)}" y="${(yBot-h).toFixed(1)}" width="${grpW.toFixed(1)}" height="${h.toFixed(1)}" fill="${SUB_COL[sub]}" opacity="0.35" rx="1"/>`;
+        svg += `<rect x="${(cx-grpW/2).toFixed(1)}" y="${(yBot-h).toFixed(1)}" width="${grpW.toFixed(1)}" height="${h.toFixed(1)}" fill="none" stroke="${SUB_COL[sub]}" stroke-width="1" rx="1" opacity="0.7"/>`;
+        total += v;
+        yBot -= h;
+      });
+    } else {
+      SUBTYPES.forEach(sub => {
+        const v = byPeriod[k]?.[sub]||0;
+        if (v <= 0) return;
+        const h = (v/maxVal)*cH;
+        svg += `<rect x="${(cx-grpW/2).toFixed(1)}" y="${(yBot-h).toFixed(1)}" width="${grpW.toFixed(1)}" height="${h.toFixed(1)}" fill="${SUB_COL[sub]}" opacity="0.88" rx="1"/>`;
+        total += v;
+        yBot -= h;
+      });
+    }
+
+    // Tooltip + labels
     const d = new Date(k);
     const wk = _caGran === 'semaine' ? getISOWeek(d) : null;
     const lbl = _caGran === 'semaine'
-      ? 'S'+wk.week+' \u2013 '+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})
-      : d.toLocaleDateString('fr-FR',{month:'long',year:'2-digit'});
+      ? (isFuture ? '\ud83d\udcc5 ' : '') + 'S'+wk.week+' \u2013 '+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})
+      : (isFuture ? '\ud83d\udcc5 Pr\u00e9v. ' : '') + d.toLocaleDateString('fr-FR',{month:'long',year:'2-digit'});
     svg += `<rect x="${(pad.left+i*slotW).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${cH}" fill="transparent" style="cursor:pointer"
       onmouseover="showTooltip(event,'${lbl}','${Math.round(total)}','0')"
       onmouseout="hideTooltip()"/>`;
-    // Séparateur vertical léger entre périodes
-    if (i > 0) {
-      svg += `<line x1="${(pad.left+i*slotW).toFixed(1)}" y1="${pad.top}" x2="${(pad.left+i*slotW).toFixed(1)}" y2="${(pad.top+cH).toFixed(1)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
-    }
-    // Label X : numéro de semaine + date de début
+
     if (_caGran === 'semaine') {
-      svg += `<text x="${cx.toFixed(1)}" y="${H-12}" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="9" font-weight="600">S${wk.week}</text>`;
+      svg += `<text x="${cx.toFixed(1)}" y="${H-12}" text-anchor="middle" fill="${isFuture?'rgba(96,165,250,0.6)':'rgba(255,255,255,0.55)'}" font-size="9" font-weight="600">S${wk.week}</text>`;
       svg += `<text x="${cx.toFixed(1)}" y="${H-2}" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="7.5">${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</text>`;
     } else {
-      svg += `<text x="${cx.toFixed(1)}" y="${H-4}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="9">${d.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'})}</text>`;
+      svg += `<text x="${cx.toFixed(1)}" y="${H-4}" text-anchor="middle" fill="${isFuture?'rgba(96,165,250,0.55)':'rgba(255,255,255,0.35)'}" font-size="9">${d.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'})}</text>`;
     }
   });
 
