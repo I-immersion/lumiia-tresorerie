@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.45</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.46</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.45</div>
+      <div class="header-version">v3.46</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -602,6 +602,20 @@ window.showTooltip = function(evt, label, inAmt, outAmt) {
   tt.style.top = (evt.clientY - 10) + 'px';
 };
 window.hideTooltip = function() { document.getElementById('chart-tooltip').style.display = 'none'; };
+window.showCashTooltip = function(evt, label, solde, inAmt, outAmt) {
+  solde = parseFloat(solde); inAmt = parseFloat(inAmt); outAmt = parseFloat(outAmt);
+  const net = inAmt - outAmt;
+  const fmtE = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+  const tt = document.getElementById('chart-tooltip');
+  tt.innerHTML = `<strong style="display:block;margin-bottom:6px;font-size:13px">${label}</strong>
+    <span style="color:var(--info);font-weight:600">Solde\u00a0: ${fmtE(solde)}</span><br>
+    <span style="color:var(--accent)">\u2197 Entr\u00e9es\u00a0: +${fmtE(inAmt)}</span><br>
+    <span style="color:var(--danger)">\u2198 D\u00e9penses\u00a0: -${fmtE(outAmt)}</span><br>
+    <span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net\u00a0: ${net>=0?'+':''}${fmtE(net)}</span>`;
+  tt.style.display = 'block';
+  tt.style.left = (evt.clientX + 16) + 'px';
+  tt.style.top  = (evt.clientY - 10) + 'px';
+};
 window.scrollToFournisseurs = function() { document.getElementById('card-fournisseurs')?.scrollIntoView({behavior:'smooth',block:'start'}); };
 
 window.toggleAccordion = function(id) {
@@ -701,9 +715,7 @@ function filterByPeriod(txs) {
 
 // ─── CHART: FLUX HEBDO ───
 function renderCashflowChart(txs) {
-  // La courbe utilise TOUTES les données dispo (pas filtrées par période)
-  // Le filtre de période s'applique seulement aux stats du sous-titre
-  const filtered = filterByPeriod(txs); // pour les stats
+  const filtered = filterByPeriod(txs); // pour les stats sous-titre seulement
   const el = document.getElementById('cashflowChart');
   const container = el ? el.parentElement : null;
   if (!txs.length) {
@@ -711,7 +723,7 @@ function renderCashflowChart(txs) {
     return;
   }
 
-  // ── Agréger par mois (TOUTES les données disponibles) ──
+  // ── Agréger par mois (toutes données) ──
   const byMonth = {};
   txs.forEach(t => {
     const m = t.date.substring(0,7);
@@ -722,172 +734,203 @@ function renderCashflowChart(txs) {
   const allMonthKeys = Object.keys(byMonth).sort();
   const nowKey = (new Date()).toISOString().substring(0,7);
 
-  // ── Fenêtre visible selon la période sélectionnée ──
-  const PERIOD_MONTHS_MAP = {'1m':1,'3m':3,'6m':6,'12m':12};
-  const visibleMonths = PERIOD_MONTHS_MAP[currentPeriod] || 6;
-  // Inclure le mois en cours dans la fenêtre
-  const cutoffDate = new Date();
-  cutoffDate.setMonth(cutoffDate.getMonth() - visibleMonths);
-  const cutoffKey = cutoffDate.toISOString().substring(0,7);
+  // ── Fenêtre visible selon période ──
+  const PMAP = {'1m':1,'3m':3,'6m':6,'12m':12};
+  const visibleMonths = PMAP[currentPeriod] || 6;
+  const cutoff = new Date();
+  cutoff.setMonth(cutoff.getMonth() - visibleMonths);
+  const cutoffKey = cutoff.toISOString().substring(0,7);
   const monthKeys = allMonthKeys.filter(m => m >= cutoffKey);
+  if (!monthKeys.length) monthKeys.push(...allMonthKeys.slice(-3));
 
-  // ── Données passé ──
-  const pastData = monthKeys.map(m => ({
-    key: m,
-    net: byMonth[m].in - byMonth[m].out,
-    isCurrent: m === nowKey,
-    label: new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short',year:'2-digit'})
-  }));
+  // ── Reconstruction du solde ──
+  // Point ancre : solde consolidé réel aujourd'hui
+  const ancreBalance = window._grandTotal || 0;
+  const balances = {};
+  balances[nowKey] = ancreBalance;
 
-  // ── Projection 3 mois : moyenne CA + charges connues ──
-  const pastComplete = pastData.filter(d => !d.isCurrent);
-  // Moyenne des entrées sur les 3 derniers mois complets
-  const last3in = pastComplete.slice(-3);
-  const avgIn = last3in.length ? last3in.reduce((s,d)=>s+byMonth[d.key].in,0)/last3in.length : 0;
-  // Charges mensuelles connues depuis Firebase
-  const chargesMensuellesConnues = Object.values(_cd||{})
-    .filter(c=>c.periodicity!=='ponctuel')
-    .reduce((s,c)=>s+monthlyVal(c),0);
-  const projectedNet = avgIn - (chargesMensuellesConnues || last3in.reduce((s,d)=>s+byMonth[d.key].out,0)/(last3in.length||1));
-  const futureData = [];
-  for (let i = 1; i <= 3; i++) {
-    const d = new Date(new Date(nowKey+'-01').setMonth(new Date(nowKey+'-01').getMonth()+i));
-    const k = d.toISOString().substring(0,7);
-    futureData.push({key:k, net:projectedNet, label:d.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'}), isFuture:true});
+  // Remonter dans le passé
+  const allSorted = allMonthKeys.slice().sort();
+  const nowIdx = allSorted.indexOf(nowKey);
+  for (let i = nowIdx - 1; i >= 0; i--) {
+    const m = allSorted[i];
+    const next = allSorted[i+1];
+    balances[m] = (balances[next] || ancreBalance) - (byMonth[next]?.in||0) + (byMonth[next]?.out||0);
   }
 
-  const allData = [...pastData, ...futureData];
-  const netVals = allData.map(d => d.net);
-  const minNet = Math.min(...netVals, 0);
-  const maxNet = Math.max(...netVals, 1);
-  const range = maxNet - minNet || 1;
+  // ── Projection 3 mois ──
+  const pastComplete = monthKeys.filter(m => m < nowKey);
+  const last3 = pastComplete.slice(-3);
+  const avgIn  = last3.length ? last3.reduce((s,m)=>s+(byMonth[m]?.in||0),0)/last3.length : 0;
+  const chargesM = Object.values(_cd||{}).filter(c=>c.periodicity!=='ponctuel').reduce((s,c)=>s+monthlyVal(c),0);
+  const avgOut = chargesM || (last3.length ? last3.reduce((s,m)=>s+(byMonth[m]?.out||0),0)/last3.length : 0);
+  const projNet = avgIn - avgOut;
 
-  // ── SVG ──
+  const futureKeys = [];
+  for (let i = 1; i <= 3; i++) {
+    const d = new Date(new Date(nowKey+'-01').setMonth(new Date(nowKey+'-01').getMonth()+i));
+    futureKeys.push(d.toISOString().substring(0,7));
+  }
+  futureKeys.forEach((k,i) => {
+    const prev = i === 0 ? nowKey : futureKeys[i-1];
+    balances[k] = (balances[prev]||ancreBalance) + projNet;
+  });
+
+  const displayKeys = [...monthKeys, ...futureKeys];
+  const allBalances = displayKeys.map(m => balances[m] || 0);
+
+  const minB = Math.min(...allBalances) * 0.97;
+  const maxB = Math.max(...allBalances) * 1.03;
+  const rangeB = maxB - minB || 1;
+
+  // ── SVG dimensions ──
   const W = container ? Math.max(container.clientWidth - 32, 300) : 500;
-  const H = 165;
-  const pad = {left:50, right:14, top:16, bottom:28};
-  const chartW = W - pad.left - pad.right;
-  const chartH = H - pad.top - pad.bottom;
-  const slotW = chartW / (allData.length - 1 || 1);
-  const todayIdx = pastData.length - 1; // index du dernier mois passé (= aujourd'hui)
+  const H = 190;
+  const pad = {left:54, right:16, top:14, bottom:28};
+  const cW = W - pad.left - pad.right;
+  const cH_curve = Math.round((H - pad.top - pad.bottom) * 0.7); // 70% = solde
+  const cH_bars  = Math.round((H - pad.top - pad.bottom) * 0.22); // 22% = barres
+  const barsTop  = pad.top + cH_curve + Math.round((H-pad.top-pad.bottom)*0.08); // gap 8%
+  const slotW    = cW / (displayKeys.length - 1 || 1);
+  const todayIdx = displayKeys.indexOf(nowKey);
 
-  function xOf(i) { return pad.left + i * slotW; }
-  function yOf(v) { return pad.top + chartH * (1 - (v - minNet) / range); }
+  function xOf(i)  { return pad.left + i * slotW; }
+  function yOfB(v) { return pad.top + cH_curve * (1 - (v - minB) / rangeB); }
 
-  // Ligne zéro
-  const y0 = yOf(0);
+  const fmtK = v => Math.abs(v)>=1000 ? (v/1000).toFixed(0)+'k' : Math.round(v)+'';
+  const fmtE = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
 
   let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="display:block;overflow:visible">`;
   svg += `<defs>
-    <linearGradient id="gPast" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#4ade80" stop-opacity="0.25"/>
-      <stop offset="100%" stop-color="#4ade80" stop-opacity="0.02"/>
+    <linearGradient id="gSolde" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#4ade80" stop-opacity="0.22"/>
+      <stop offset="100%" stop-color="#4ade80" stop-opacity="0.01"/>
     </linearGradient>
-    <linearGradient id="gFuture" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.18"/>
-      <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.02"/>
+    <linearGradient id="gSoldeF" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#60a5fa" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#60a5fa" stop-opacity="0.01"/>
     </linearGradient>
   </defs>`;
 
-  // Grille horizontale
-  const ticks = [0, 0.25, 0.5, 0.75, 1];
-  ticks.forEach(f => {
-    const v = minNet + range * f;
-    const y = yOf(v);
+  // ── Grille horizontale (zone courbe) ──
+  [0, 0.33, 0.66, 1].forEach(f => {
+    const v = minB + rangeB * f;
+    const y = yOfB(v);
     svg += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${W-pad.right}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.04)" stroke-width="1"/>`;
-    const label = Math.abs(v) >= 1000 ? (v/1000).toFixed(0)+'k' : Math.round(v)+'';
-    svg += `<text x="${pad.left-5}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.2)" font-size="9">${label}</text>`;
+    svg += `<text x="${pad.left-5}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.22)" font-size="9">${fmtK(v)}</text>`;
   });
 
-  // Ligne zéro marquée si dans la plage
-  if (minNet < 0 && maxNet > 0) {
-    svg += `<line x1="${pad.left}" y1="${y0.toFixed(1)}" x2="${W-pad.right}" y2="${y0.toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1" stroke-dasharray="3,3"/>`;
+  // ── Séparateur zones ──
+  svg += `<line x1="${pad.left}" y1="${barsTop-2}" x2="${W-pad.right}" y2="${barsTop-2}" stroke="rgba(255,255,255,0.06)" stroke-width="1"/>`;
+
+  // ── Barres flux (zone basse) ──
+  const maxFlow = Math.max(...monthKeys.map(m => Math.max(byMonth[m]?.in||0, byMonth[m]?.out||0)), 1);
+  const bW = Math.min(Math.floor(slotW * 0.55), 32);
+  monthKeys.forEach((m, i) => {
+    const inp = byMonth[m]?.in || 0;
+    const out = byMonth[m]?.out || 0;
+    const hi = (inp/maxFlow)*cH_bars;
+    const ho = (out/maxFlow)*cH_bars;
+    const cx = xOf(i);
+    if (inp > 0) svg += `<rect x="${(cx - bW/2).toFixed(1)}" y="${(barsTop + cH_bars - hi).toFixed(1)}" width="${(bW/2-1).toFixed(1)}" height="${hi.toFixed(1)}" fill="rgba(74,222,128,0.35)" rx="1"/>`;
+    if (out > 0) svg += `<rect x="${cx.toFixed(1)}" y="${(barsTop + cH_bars - ho).toFixed(1)}" width="${(bW/2-1).toFixed(1)}" height="${ho.toFixed(1)}" fill="rgba(248,113,113,0.3)" rx="1"/>`;
+  });
+
+  // ── Zone gradient solde passé ──
+  const pastIdxEnd = todayIdx >= 0 ? todayIdx : displayKeys.length-1;
+  const pastPts = displayKeys.slice(0, pastIdxEnd+1).map((m,i) => `${xOf(i).toFixed(1)},${yOfB(balances[m]||0).toFixed(1)}`).join(' ');
+  const pastBase = `${xOf(pastIdxEnd).toFixed(1)},${(pad.top+cH_curve).toFixed(1)} ${pad.left},${(pad.top+cH_curve).toFixed(1)}`;
+  if (pastPts) svg += `<polygon points="${pastPts} ${pastBase}" fill="url(#gSolde)"/>`;
+
+  // ── Zone gradient projection ──
+  if (todayIdx >= 0 && futureKeys.length) {
+    const futurePts = [nowKey, ...futureKeys].map((m,i) => `${xOf(todayIdx+i).toFixed(1)},${yOfB(balances[m]||0).toFixed(1)}`).join(' ');
+    const futBase = `${xOf(todayIdx+futureKeys.length).toFixed(1)},${(pad.top+cH_curve).toFixed(1)} ${xOf(todayIdx).toFixed(1)},${(pad.top+cH_curve).toFixed(1)}`;
+    svg += `<polygon points="${futurePts} ${futBase}" fill="url(#gSoldeF)"/>`;
   }
 
-  // Zone passé remplie
-  const pastPoints = pastData.map((d,i) => `${xOf(i).toFixed(1)},${yOf(d.net).toFixed(1)}`).join(' ');
-  const pastAreaBottom = `${xOf(pastData.length-1).toFixed(1)},${y0.toFixed(1)} ${xOf(0).toFixed(1)},${y0.toFixed(1)}`;
-  svg += `<polygon points="${pastPoints} ${pastAreaBottom}" fill="url(#gPast)"/>`;
+  // ── Courbe solde passé (verte pleine) ──
+  const pastPath = displayKeys.slice(0, pastIdxEnd+1).map((m,i) => `${i===0?'M':'L'}${xOf(i).toFixed(1)},${yOfB(balances[m]||0).toFixed(1)}`).join(' ');
+  svg += `<path d="${pastPath}" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
 
-  // Zone future remplie
-  const futureOffset = pastData.length - 1;
-  const futurePoints = futureData.map((d,i) => `${xOf(futureOffset+i).toFixed(1)},${yOf(d.net).toFixed(1)}`).join(' ');
-  const futureAreaBottom = `${xOf(futureOffset+futureData.length-1).toFixed(1)},${y0.toFixed(1)} ${xOf(futureOffset).toFixed(1)},${y0.toFixed(1)}`;
-  svg += `<polygon points="${futurePoints} ${futureAreaBottom}" fill="url(#gFuture)"/>`;
-
-  // Ligne passé (verte pleine)
-  const pastLine = pastData.map((d,i) => `${i===0?'M':'L'}${xOf(i).toFixed(1)},${yOf(d.net).toFixed(1)}`).join(' ');
-  svg += `<path d="${pastLine}" fill="none" stroke="#4ade80" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>`;
-
-  // Ligne future (bleue tiretée) depuis dernier point passé
-  if (futureData.length) {
-    const futureLine = [pastData[pastData.length-1], ...futureData]
-      .map((d,i) => `${i===0?'M':'L'}${xOf(futureOffset+i-1).toFixed(1)},${yOf(d.net).toFixed(1)}`).join(' ');
-    // recalc proprement
-    const pts = [pastData[pastData.length-1], ...futureData];
-    const futurePath = pts.map((d,i) => {
-      const xi = i === 0 ? futureOffset : futureOffset + i;
-      return `${i===0?'M':'L'}${xOf(xi).toFixed(1)},${yOf(d.net).toFixed(1)}`;
-    }).join(' ');
+  // ── Courbe projection (bleue tiretée) ──
+  if (todayIdx >= 0 && futureKeys.length) {
+    const futurePath = [nowKey, ...futureKeys].map((m,i) => `${i===0?'M':'L'}${xOf(todayIdx+i).toFixed(1)},${yOfB(balances[m]||0).toFixed(1)}`).join(' ');
     svg += `<path d="${futurePath}" fill="none" stroke="#60a5fa" stroke-width="2" stroke-dasharray="6,3" stroke-linecap="round"/>`;
+    // Zone tension si solde projeté < seuil (5 000€)
+    futureKeys.forEach((m,i) => {
+      if ((balances[m]||0) < 5000) {
+        const x = xOf(todayIdx+i+1);
+        svg += `<circle cx="${x.toFixed(1)}" cy="${yOfB(balances[m]).toFixed(1)}" r="5" fill="rgba(251,191,36,0.25)" stroke="#fbbf24" stroke-width="1.5"/>`;
+      }
+    });
   }
 
-  // Marqueur "Aujourd'hui"
-  const todayX = xOf(todayIdx);
-  svg += `<line x1="${todayX.toFixed(1)}" y1="${pad.top}" x2="${todayX.toFixed(1)}" y2="${(pad.top+chartH).toFixed(1)}" stroke="rgba(255,255,255,0.18)" stroke-width="1" stroke-dasharray="4,3"/>`;
-  svg += `<text x="${(todayX+4).toFixed(1)}" y="${(pad.top+10).toFixed(1)}" fill="rgba(255,255,255,0.35)" font-size="9">Auj.</text>`;
+  // ── Marqueur Aujourd'hui ──
+  if (todayIdx >= 0) {
+    const tx = xOf(todayIdx);
+    svg += `<line x1="${tx.toFixed(1)}" y1="${pad.top}" x2="${tx.toFixed(1)}" y2="${(barsTop+cH_bars).toFixed(1)}" stroke="rgba(255,255,255,0.2)" stroke-width="1" stroke-dasharray="4,3"/>`;
+    svg += `<text x="${(tx+4).toFixed(1)}" y="${(pad.top+10).toFixed(1)}" fill="rgba(255,255,255,0.4)" font-size="9">Auj.</text>`;
+  }
 
-  // Points passés + zones hover
-  pastData.forEach((d,i) => {
-    const isNeg = d.net < 0;
-    const cx = xOf(i).toFixed(1), cy = yOf(d.net).toFixed(1);
-    const inAmt = byMonth[d.key]?.in || 0;
-    const outAmt = byMonth[d.key]?.out || 0;
-    const label = d.label + (d.isCurrent ? ' (en cours)' : '');
-    // Zone invisible large pour hover facile
-    svg += `<rect x="${(xOf(i)-slotW/2).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${chartH}" fill="transparent" style="cursor:pointer"
-      onmouseover="showTooltip(event,'${label}','${inAmt.toFixed(0)}','${outAmt.toFixed(0)}')"
+  // ── Points + zones hover ──
+  displayKeys.forEach((m, i) => {
+    const bal = balances[m] || 0;
+    const isFuture = futureKeys.includes(m);
+    const isCurrent = m === nowKey;
+    const cx = xOf(i), cy = yOfB(bal);
+    const inp  = byMonth[m]?.in  || avgIn;
+    const out2 = byMonth[m]?.out || avgOut;
+    const ml   = new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short',year:'2-digit'});
+    const tipLabel = ml + (isFuture?' (proj.)':isCurrent?' (en cours)':'');
+    const tipIn    = isFuture ? Math.round(avgIn)  : Math.round(inp);
+    const tipOut   = isFuture ? Math.round(avgOut) : Math.round(out2);
+    svg += `<rect x="${(cx-slotW/2).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${(barsTop+cH_bars-pad.top).toFixed(1)}" fill="transparent" style="cursor:pointer"
+      onmouseover="showCashTooltip(event,'${tipLabel}','${Math.round(bal)}','${tipIn}','${tipOut}')"
       onmouseout="hideTooltip()"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="${d.isCurrent?5:3.5}" fill="${isNeg?'#f87171':'#4ade80'}" stroke="#0d0f14" stroke-width="${d.isCurrent?2:1.5}" style="pointer-events:none"/>`;
+    // Point sur la courbe
+    const r = isCurrent ? 5.5 : 3.5;
+    const fill = isFuture ? '#60a5fa' : (bal < (minB + rangeB*0.3) ? '#f87171' : '#4ade80');
+    svg += `<circle cx="${cx.toFixed(1)}" cy="${cy.toFixed(1)}" r="${r}" fill="${fill}" stroke="#0d0f14" stroke-width="${isCurrent?2.5:1.5}" opacity="${isFuture?0.8:1}" style="pointer-events:none"/>`;
   });
 
-  // Points futurs + zones hover
-  futureData.forEach((d,i) => {
-    const cx = xOf(futureOffset+i).toFixed(1), cy = yOf(d.net).toFixed(1);
-    const inEst = (byMonth[pastComplete.slice(-1)[0]?.key]?.in||0);
-    const outEst = chargesMensuellesConnues||0;
-    svg += `<rect x="${(xOf(futureOffset+i)-slotW/2).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${chartH}" fill="transparent" style="cursor:pointer"
-      onmouseover="showTooltip(event,'${d.label} (projection)','${inEst.toFixed(0)}','${outEst.toFixed(0)}')"
-      onmouseout="hideTooltip()"/>`;
-    svg += `<circle cx="${cx}" cy="${cy}" r="3" fill="#60a5fa" stroke="#0d0f14" stroke-width="1.5" opacity="0.8" style="pointer-events:none"/>`;
+  // ── Labels mois ──
+  displayKeys.forEach((m,i) => {
+    const isFuture = futureKeys.includes(m);
+    const ml = new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short'});
+    svg += `<text x="${xOf(i).toFixed(1)}" y="${H-4}" text-anchor="middle" fill="${isFuture?'rgba(96,165,250,0.4)':'rgba(255,255,255,0.28)'}" font-size="9" style="pointer-events:none">${ml}</text>`;
   });
 
-  // Labels mois
-  allData.forEach((d,i) => {
-    svg += `<text x="${xOf(i).toFixed(1)}" y="${H-4}" text-anchor="middle" fill="${d.isFuture?'rgba(96,165,250,0.4)':'rgba(255,255,255,0.25)'}" font-size="9" style="pointer-events:none">${d.label}</text>`;
-  });
-
-  // Légende
-  svg += `<circle cx="${pad.left}" cy="8" r="4" fill="#4ade80"/>
-    <text x="${pad.left+8}" y="12" fill="rgba(255,255,255,0.35)" font-size="9">Pass\u00e9</text>
-    <line x1="${pad.left+50}" y1="8" x2="${pad.left+65}" y2="8" stroke="#60a5fa" stroke-width="2" stroke-dasharray="5,3"/>
-    <text x="${pad.left+69}" y="12" fill="rgba(255,255,255,0.35)" font-size="9">Projection</text>`;
+  // ── Légende ──
+  const ly = pad.top + 8;
+  svg += `<circle cx="${pad.left}" cy="${ly}" r="4" fill="#4ade80"/>
+    <text x="${pad.left+8}" y="${ly+4}" fill="rgba(255,255,255,0.35)" font-size="9">Solde</text>
+    <line x1="${pad.left+45}" y1="${ly}" x2="${pad.left+60}" y2="${ly}" stroke="#60a5fa" stroke-width="2" stroke-dasharray="5,3"/>
+    <text x="${pad.left+64}" y="${ly+4}" fill="rgba(255,255,255,0.35)" font-size="9">Projection</text>
+    <rect x="${pad.left+118}" y="${ly-4}" width="6" height="6" fill="rgba(74,222,128,0.4)" rx="1"/>
+    <text x="${pad.left+127}" y="${ly+4}" fill="rgba(255,255,255,0.35)" font-size="9">Entr\u00e9es</text>
+    <rect x="${pad.left+168}" y="${ly-4}" width="6" height="6" fill="rgba(248,113,113,0.35)" rx="1"/>
+    <text x="${pad.left+177}" y="${ly+4}" fill="rgba(255,255,255,0.35)" font-size="9">D\u00e9penses</text>`;
 
   svg += '</svg>';
 
   if (el) el.outerHTML = svg.replace('<svg', '<svg id="cashflowChart" class="chart-svg"');
   else if (container) container.insertAdjacentHTML('beforeend', svg);
 
-  // Sous-titre
+  // ── Sous-titre (stats période sélectionnée) ──
   const totalIn = filtered.filter(t=>parseFloat(t.amount)>0).reduce((s,t)=>s+parseFloat(t.amount),0);
   const totalOut2 = Math.abs(filtered.filter(t=>parseFloat(t.amount)<0).reduce((s,t)=>s+parseFloat(t.amount),0));
   const net = totalIn - totalOut2;
   const subEl = document.getElementById('chartSub');
-  if (subEl) subEl.innerHTML =
-    `<span style="color:var(--accent)">+${fmt(totalIn)} entr\u00e9es</span> \u00b7 ` +
-    `<span style="color:var(--danger)">-${fmt(totalOut2)} d\u00e9penses</span> \u00b7 ` +
-    `<span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net ${net>=0?'+':''}${fmt(net)}</span>`;
+  if (subEl) {
+    const soldeLabel = ancreBalance ? ` \u00b7 <span style="color:var(--info);font-weight:600">Solde\u00a0: ${fmtE(ancreBalance)}</span>` : '';
+    subEl.innerHTML =
+      `<span style="color:var(--accent)">+${fmt(totalIn)} entr\u00e9es</span> \u00b7 ` +
+      `<span style="color:var(--danger)">-${fmt(totalOut2)} d\u00e9penses</span> \u00b7 ` +
+      `<span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net ${net>=0?'+':''}${fmt(net)}</span>${soldeLabel}`;
+  }
 }
+
 
 // ─── CHART: DONUT ───
 
@@ -1327,7 +1370,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.45
+// FOURNISSEURS — v3.46
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1564,7 +1607,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.45
+// COMPARATIF CA / CHARGES — v3.46
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2053,7 +2096,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.45
+// ANALYSE CA — v3.46
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
