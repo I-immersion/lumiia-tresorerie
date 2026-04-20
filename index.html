@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.49</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.50</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.49</div>
+      <div class="header-version">v3.50</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -868,7 +868,7 @@ function renderCashflowChart(txs) {
   const pastComplete = monthKeys.filter(m => m < nowKey);
   const last3 = pastComplete.slice(-3);
   const avgIn  = last3.length ? last3.reduce((s,m)=>s+(byMonth[m]?.in||0),0)/last3.length : 0;
-  const chargesM = Object.values(_cd||{}).filter(c=>c.periodicity!=='ponctuel').reduce((s,c)=>s+monthlyVal(c),0);
+  const chargesM = chargesOpex(_cd);
   const avgOut = chargesM || (last3.length ? last3.reduce((s,m)=>s+(byMonth[m]?.out||0),0)/last3.length : 0);
   const projNet = avgIn - avgOut;
 
@@ -1478,7 +1478,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.49
+// FOURNISSEURS — v3.50
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1488,6 +1488,13 @@ const PERIOD_COLOR = {
   mensuel:'var(--accent)', bimestriel:'#34d399', irregulier:'var(--warn)',
   trimestriel:'var(--info)', annuel:'var(--muted2)', ponctuel:'var(--muted2)'
 };
+
+// Charges OPEX uniquement (exclut investissements)
+function chargesOpex(cd) {
+  return Object.values(cd||{})
+    .filter(c => c.periodicity !== 'ponctuel' && _catNature(c.plCategoryLabel||'') !== 'invest')
+    .reduce((s,c) => s + monthlyVal(c), 0);
+}
 
 function monthlyVal(c) {
   const r = parseFloat(c.monthlyRef)||0;
@@ -1519,7 +1526,8 @@ function renderCharges(charges) {
   charges = charges || _cd || {};
   const list = Object.values(charges);
   const active = list.filter(c => c.periodicity !== 'ponctuel');
-  const total = active.reduce((s,c) => s + monthlyVal(c), 0);
+  const totalAll = active.reduce((s,c) => s + monthlyVal(c), 0);
+  const total = active.filter(c => _catNature(c.plCategoryLabel||'') !== 'invest').reduce((s,c) => s + monthlyVal(c), 0);
   const badge = document.getElementById('chargesTotalBadge');
   if (badge) badge.textContent = Math.round(total) + '\u00a0\u20ac/mois';
 
@@ -1715,7 +1723,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.49
+// COMPARATIF CA / CHARGES — v3.50
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -1766,9 +1774,7 @@ function renderComparatif() {
   });
 
   // Total charges mensuelles estimées
-  const chargesTotal = Object.values(_cd)
-    .filter(c => c.periodicity !== 'ponctuel')
-    .reduce((sum, c) => sum + monthlyVal(c), 0);
+  const chargesTotal = chargesOpex(_cd);
 
   // Totaux CA par mois
   const monthTotals = months.map(m => SUBTYPES.reduce((s, sub) => s + (byMonth[m][sub] || 0), 0));
@@ -1856,11 +1862,24 @@ function renderComparatif() {
   const margeRate = avgCA > 0 ? (avgMarge / avgCA * 100) : 0;
   const margeCol = avgMarge >= 0 ? 'var(--accent)' : 'var(--danger)';
 
+  // Marge brute bar = CA bar - achats boissons (depuis les transactions réelles)
+  const txAll = window._allTx || [];
+  const caBar6m = months.reduce((s, m) => s + (byMonth[m]['bar']||0), 0);
+  const achatsBoissonsCutoff = months[0] + '-01';
+  const achatsBoissons = txAll
+    .filter(t => t.date >= achatsBoissonsCutoff && parseFloat(t.amount) < 0)
+    .filter(t => /jean louis.*biere|la biere|prlv sepa.*biere|metro|cave|brasserie|crest|boisson/i.test(t.label||'') || t.categories?.[0]?.label?.toLowerCase().includes('boisson'))
+    .reduce((s,t) => s + Math.abs(parseFloat(t.amount)), 0);
+  const margeBarBrute = caBar6m - achatsBoissons;
+  const margeBarRate  = caBar6m > 0 ? (margeBarBrute / caBar6m * 100) : 0;
+  const margeBarCol   = margeBarBrute >= 0 ? '#f59e0b' : 'var(--danger)';
+
   if (kpiRow) kpiRow.innerHTML =
     `<div style="text-align:right"><div style="font-size:10px;color:var(--muted2);margin-bottom:2px">Marge moy. 3 mois</div><div style="font-size:16px;font-weight:700;color:${margeCol}">${avgMarge>=0?'+':''}${fmtEur(avgMarge)}</div></div>` +
-    `<div style="text-align:right"><div style="font-size:10px;color:var(--muted2);margin-bottom:2px">Taux de marge</div><div style="font-size:16px;font-weight:700;color:${margeCol}">${margeRate>=0?'+':''}${margeRate.toFixed(0)}%</div></div>`;
+    `<div style="text-align:right"><div style="font-size:10px;color:var(--muted2);margin-bottom:2px">Taux de marge</div><div style="font-size:16px;font-weight:700;color:${margeCol}">${margeRate>=0?'+':''}${margeRate.toFixed(0)}%</div></div>` +
+    (caBar6m > 0 ? `<div style="text-align:right;border-left:1px solid var(--border);padding-left:12px"><div style="font-size:10px;color:var(--muted2);margin-bottom:2px">Marge brute Bar</div><div style="font-size:16px;font-weight:700;color:${margeBarCol}">${fmtEur(margeBarBrute)} <span style="font-size:11px;font-weight:400">(${margeBarRate.toFixed(0)}%)</span></div><div style="font-size:10px;color:var(--muted2)">CA ${fmtEur(caBar6m)} \u2212 Achats ${fmtEur(achatsBoissons)}</div></div>` : '');
 
-  if (subEl) subEl.innerHTML = `CA identifi\u00e9 (6 mois) : <strong>${fmtEur(monthTotals.reduce((s,v)=>s+v,0))}</strong> &bull; Charges fixes : <strong>${fmtEur(chargesTotal)}/mois</strong>`;
+  if (subEl) subEl.innerHTML = `CA identifi\u00e9 (6 mois) : <strong>${fmtEur(monthTotals.reduce((s,v)=>s+v,0))}</strong> &bull; Charges OPEX : <strong>${fmtEur(chargesTotal)}/mois</strong> <span style="color:var(--muted2);font-size:10px">(investissements exclus)</span>`;
   if (status) status.textContent = 'Mis \u00e0 jour \u00e0 ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
 }
 window._renderComparatif = renderComparatif;
@@ -2204,7 +2223,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.49
+// ANALYSE CA — v3.50
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
