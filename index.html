@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.55</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.57</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.55</div>
+      <div class="header-version">v3.57</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -277,14 +277,27 @@
     </div>
 
     <!-- GRAPHIQUES -->
-    <div class="period-row">
+    <div class="period-row" style="flex-wrap:wrap;gap:10px">
       <div class="section-title" style="margin-bottom:0">Activit&eacute; financi&egrave;re</div>
-      <div class="period-btns">
-        <button class="period-btn" data-p="1m" onclick="setPeriod('1m')">1 mois</button>
-        <button class="period-btn active" data-p="3m" onclick="setPeriod('3m')">3 mois</button>
-        <button class="period-btn" data-p="6m" onclick="setPeriod('6m')">6 mois</button>
-        <button class="period-btn" data-p="12m" onclick="setPeriod('12m')">12 mois</button>
-        <button class="period-btn" data-p="custom" onclick="window._toggleCustomPeriod()">Période&hellip;</button>
+      <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap">
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10.5px;color:var(--muted2);font-weight:600;letter-spacing:.04em;white-space:nowrap">Historique</span>
+          <div class="period-btns">
+            <button class="period-btn" data-p="1m" onclick="setPeriod('1m')">1M</button>
+            <button class="period-btn" data-p="3m" onclick="setPeriod('3m')">3M</button>
+            <button class="period-btn active" data-p="6m" onclick="setPeriod('6m')">6M</button>
+            <button class="period-btn" data-p="12m" onclick="setPeriod('12m')">12M</button>
+            <button class="period-btn" data-p="custom" onclick="window._toggleCustomPeriod()" style="font-size:11px">&hellip;</button>
+          </div>
+        </div>
+        <div style="display:flex;align-items:center;gap:6px">
+          <span style="font-size:10.5px;color:rgba(96,165,250,0.8);font-weight:600;letter-spacing:.04em;white-space:nowrap">Projection</span>
+          <div class="period-btns">
+            <button class="period-btn" data-proj="3m" onclick="setProjection('3m')">3M</button>
+            <button class="period-btn active" data-proj="6m" onclick="setProjection('6m')">6M</button>
+            <button class="period-btn" data-proj="12m" onclick="setProjection('12m')">12M</button>
+          </div>
+        </div>
       </div>
     </div>
     <div id="customPeriodRow" style="display:none;flex-wrap:wrap;gap:8px;align-items:center;margin-bottom:14px">
@@ -525,7 +538,9 @@ const PROXY = 'https://europe-west1-lumiia-live.cloudfunctions.net/pennylane';
 let allTransactions = [];
 const _loadedInvoices = {};
 let allInvoiceRefs = new Set();
-let currentPeriod = '3m';
+let currentPeriod = '6m';
+let currentProjection = '6m';
+const PROJ_MONTHS = {'3m':3,'6m':6,'12m':12};
 let currentDonutTab = 'out';
 
 // ─── UTILS ───
@@ -563,10 +578,16 @@ function periodDateFrom(p) {
   return localDateStr(d);
 }
 
+window.setProjection = function(p) {
+  currentProjection = p;
+  document.querySelectorAll('[data-proj]').forEach(b => b.classList.toggle('active', b.dataset.proj === p));
+  renderCharts(allTransactions);
+};
+
 window.setPeriod = async function(p) {
   currentPeriod = p;
   document.getElementById('customPeriodRow').style.display = 'none';
-  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.p === p));
+  document.querySelectorAll('[data-p]').forEach(b => b.classList.toggle('active', b.dataset.p === p));
   document.getElementById('syncBadge').textContent = '\u23f3 Chargement\u2026';
   document.getElementById('syncBadge').className = 'badge loading';
   try {
@@ -588,7 +609,7 @@ window._toggleCustomPeriod = function() {
     document.getElementById('customDateFrom').value = from;
     document.getElementById('customDateTo').value = today;
   }
-  document.querySelectorAll('.period-btn').forEach(b => b.classList.toggle('active', b.dataset.p === 'custom' && !visible));
+  document.querySelectorAll('[data-p]').forEach(b => b.classList.toggle('active', b.dataset.p === 'custom' && !visible));
 };
 
 window._applyCustomPeriod = async function() {
@@ -908,8 +929,9 @@ function renderCashflowChart(txs) {
     return Math.max(0, caQ * 0.20 - outQ * (20/120));
   }
 
+  const futureMonthsCount = PROJ_MONTHS[currentProjection] || 6;
   const futureKeys = [];
-  for (let i = 1; i <= 3; i++) {
+  for (let i = 1; i <= futureMonthsCount; i++) {
     const d = new Date(new Date(nowKey+'-01').setMonth(new Date(nowKey+'-01').getMonth()+i));
     futureKeys.push(d.toISOString().substring(0,7));
   }
@@ -1008,6 +1030,26 @@ function renderCashflowChart(txs) {
       if ((balances[m]||0) < 5000) {
         const x = xOf(todayIdx+i+1);
         svg += `<circle cx="${x.toFixed(1)}" cy="${yOfB(balances[m]).toFixed(1)}" r="5" fill="rgba(251,191,36,0.25)" stroke="#fbbf24" stroke-width="1.5"/>`;
+      }
+    });
+    // Marqueurs changement de palier crédit (triangle ▼ rouge sur la courbe)
+    const creditPaliers = {'2026-07':'CIC ×4','2026-08':'+REDA','2026-10':'+BPI'};
+    futureKeys.forEach((m,i) => {
+      if (creditPaliers[m]) {
+        const x = xOf(todayIdx+i+1);
+        const y = yOfB(balances[m]||0);
+        svg += `<polygon points="${x},${(y-14).toFixed(1)} ${(x-6).toFixed(1)},${(y-24).toFixed(1)} ${(x+6).toFixed(1)},${(y-24).toFixed(1)}" fill="#f87171" opacity="0.9"/>`;
+        svg += `<text x="${x.toFixed(1)}" y="${(y-27).toFixed(1)}" text-anchor="middle" fill="#f87171" font-size="8.5" font-weight="600">${creditPaliers[m]}</text>`;
+      }
+    });
+    // Marqueurs TVA trimestrielle (T sur les mois de déclaration)
+    const tvaMois = {'04':'TVA T1','07':'TVA T2','10':'TVA T3','01':'TVA T4'};
+    futureKeys.forEach((m,i) => {
+      const mm = m.substring(5,7);
+      if (tvaMois[mm] && tvaAtMonth(m) > 0) {
+        const x = xOf(todayIdx+i+1);
+        const y = yOfB(balances[m]||0);
+        svg += `<text x="${x.toFixed(1)}" y="${(y+18).toFixed(1)}" text-anchor="middle" fill="#fbbf24" font-size="8" opacity="0.8">${tvaMois[mm]}</text>`;
       }
     });
   }
@@ -1450,7 +1492,7 @@ async function load() {
   try {
     const token = await auth.currentUser.getIdToken();
     const h = { Authorization:`Bearer ${token}` };
-    const dateFrom = periodDateFrom('3m');
+    const dateFrom = periodDateFrom(currentPeriod);
 
     // Banques en parallèle avec 1ère page transactions
     const [banksRes, tx1Res] = await Promise.all([
@@ -1482,7 +1524,7 @@ async function load() {
 
     renderBanks(banks);
     renderCharts(allTx);
-    renderKPIs(invs, sups, '3m');
+    renderKPIs(invs, sups, currentPeriod);
     renderTxList(allTx);
 
   } catch(e) {
@@ -1523,7 +1565,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.55
+// FOURNISSEURS — v3.57
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1771,7 +1813,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.55
+// COMPARATIF CA / CHARGES — v3.57
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2271,7 +2313,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.55
+// ANALYSE CA — v3.57
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
