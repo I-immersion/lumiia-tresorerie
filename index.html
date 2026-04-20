@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.48</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.49</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.48</div>
+      <div class="header-version">v3.49</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -448,9 +448,9 @@
 </div>
 <!-- MODAL DÉTAIL MOIS -->
 <div id="monthModal" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.65);z-index:1100;align-items:flex-start;justify-content:center;overflow-y:auto;padding:20px 16px" onclick="if(event.target===this)this.style.display='none'">
-  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:680px;margin:0 auto;overflow:hidden">
+  <div style="background:var(--surface);border:1px solid var(--border);border-radius:16px;width:100%;max-width:560px;margin:0 auto;overflow:hidden" onclick="event.stopPropagation()">
     <!-- Header -->
-    <div style="display:flex;align-items:center;justify-content:space-between;padding:20px 24px 16px;border-bottom:1px solid var(--border)">
+    <div style="display:flex;align-items:center;justify-content:space-between;padding:18px 24px 14px;border-bottom:1px solid var(--border)">
       <div>
         <div id="mmdTitle" style="font-family:'DM Serif Display',serif;font-size:20px;letter-spacing:-0.5px"></div>
         <div id="mmdSub" style="font-size:11px;color:var(--muted2);margin-top:3px"></div>
@@ -458,19 +458,15 @@
       <button onclick="document.getElementById('monthModal').style.display='none'" style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--muted2);font-size:18px;width:32px;height:32px;cursor:pointer;display:flex;align-items:center;justify-content:center;font-family:inherit">&times;</button>
     </div>
     <!-- KPIs -->
-    <div id="mmdKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)">
+    <div id="mmdKpis" style="display:grid;grid-template-columns:repeat(4,1fr);gap:1px;background:var(--border)"></div>
+    <!-- Onglets -->
+    <div style="display:flex;border-bottom:1px solid var(--border)">
+      <button id="mmdTabIn" onclick="mmdSwitch('in')" style="flex:1;padding:11px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;background:var(--surface2);border:none;color:var(--accent);cursor:pointer;border-right:1px solid var(--border)">&#8593; Entr&eacute;es <span id="mmdTabInCount" style="font-weight:400;opacity:.7"></span></button>
+      <button id="mmdTabOut" onclick="mmdSwitch('out')" style="flex:1;padding:11px;font-family:'DM Sans',sans-serif;font-size:12px;font-weight:600;background:var(--surface);border:none;color:var(--muted2);cursor:pointer">&#8595; D&eacute;penses <span id="mmdTabOutCount" style="font-weight:400;opacity:.7"></span></button>
     </div>
-    <!-- Listes -->
-    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0;background:var(--border)">
-      <div style="background:var(--surface);padding:16px 20px">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--accent);margin-bottom:10px">Entr&eacute;es</div>
-        <div id="mmdIn"></div>
-      </div>
-      <div style="background:var(--surface);padding:16px 20px;border-left:1px solid var(--border)">
-        <div style="font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.8px;color:var(--danger);margin-bottom:10px">D&eacute;penses</div>
-        <div id="mmdOut"></div>
-      </div>
-    </div>
+    <!-- Liste active -->
+    <div id="mmdIn" style="padding:16px 24px;max-height:55vh;overflow-y:auto"></div>
+    <div id="mmdOut" style="display:none;padding:16px 24px;max-height:55vh;overflow-y:auto"></div>
   </div>
 </div>
 
@@ -658,6 +654,16 @@ window.openVerification = function() {
   if (section) section.scrollIntoView({behavior:'smooth', block:'start'});
 };
 
+window.mmdSwitch = function(tab) {
+  const isIn = tab === 'in';
+  document.getElementById('mmdIn').style.display  = isIn  ? '' : 'none';
+  document.getElementById('mmdOut').style.display = !isIn ? '' : 'none';
+  const btnIn  = document.getElementById('mmdTabIn');
+  const btnOut = document.getElementById('mmdTabOut');
+  if (btnIn)  { btnIn.style.background  = isIn  ? 'var(--surface2)' : 'var(--surface)'; btnIn.style.color  = isIn  ? 'var(--accent)'  : 'var(--muted2)'; }
+  if (btnOut) { btnOut.style.background = !isIn ? 'var(--surface2)' : 'var(--surface)'; btnOut.style.color = !isIn ? 'var(--danger)'  : 'var(--muted2)'; }
+};
+
 window.openMonthDetail = function(monthKey, solde) {
   hideTooltip();
   const txs = (window._allTx || []).filter(t => t.date.substring(0,7) === monthKey);
@@ -708,6 +714,13 @@ window.openMonthDetail = function(monthKey, solde) {
     ? `<div style="font-size:11px;color:var(--muted2);margin-bottom:8px">${sorties.length} sortie${sorties.length>1?'s':''} \u00b7 <strong style="color:var(--danger)">-${fmtE(totalOut)}</strong></div>`+sorties.map(t=>txRow(t,false)).join('')
     : '<div style="font-size:11px;color:var(--muted2)">Aucune sortie</div>';
 
+  // Compteurs onglets
+  const cntIn  = document.getElementById('mmdTabInCount');
+  const cntOut = document.getElementById('mmdTabOutCount');
+  if (cntIn)  cntIn.textContent  = entrees.length ? `(${entrees.length})` : '';
+  if (cntOut) cntOut.textContent = sorties.length ? `(${sorties.length})` : '';
+  // Ouvrir sur l'onglet Entrées par défaut
+  mmdSwitch('in');
   document.getElementById('monthModal').style.display = 'flex';
 };
 
@@ -1465,7 +1478,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.48
+// FOURNISSEURS — v3.49
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1702,7 +1715,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.48
+// COMPARATIF CA / CHARGES — v3.49
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2191,7 +2204,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.48
+// ANALYSE CA — v3.49
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
