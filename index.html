@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.64</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.66</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.64</div>
+      <div class="header-version">v3.66</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1635,7 +1635,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.64
+// FOURNISSEURS — v3.66
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1883,7 +1883,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.64
+// COMPARATIF CA / CHARGES — v3.66
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -1970,6 +1970,7 @@ function renderComparatif() {
     const cx = pad.left + i*slotW + slotW/2;
     const x  = cx - barW/2;
     let yBottom = pad.top + chartH;
+    const monthTotal = SUBTYPES.reduce((s,sub)=>s+(byMonth[m][sub]||0),0);
 
     SUBTYPES.forEach(sub => {
       const v = byMonth[m][sub] || 0;
@@ -1978,10 +1979,15 @@ function renderComparatif() {
       const y = yBottom - h;
       const isFirst = (yBottom === pad.top + chartH);
       svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" fill="${SUB_COLORS[sub]}" opacity="0.88"${isFirst ? ' rx="3"' : ''}/>`;
-      // Label montant si barre assez haute
-      if (h > 18) svg += `<text x="${(cx).toFixed(1)}" y="${(y + h/2 + 3.5).toFixed(1)}" text-anchor="middle" fill="rgba(0,0,0,0.65)" font-size="9" font-weight="600">${fmtK(v)}</text>`;
       yBottom -= h;
     });
+
+    // Label total au-dessus de la barre (pas par segment)
+    if (monthTotal > 0) {
+      const totalH = (monthTotal / maxVal) * chartH;
+      const totalY = pad.top + chartH - totalH;
+      svg += `<text x="${cx.toFixed(1)}" y="${(totalY - 4).toFixed(1)}" text-anchor="middle" fill="rgba(255,255,255,0.6)" font-size="9" font-weight="600">${fmtK(monthTotal)}</text>`;
+    }
 
     // Label mois
     const mLabel = new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short'});
@@ -2383,7 +2389,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.64
+// ANALYSE CA — v3.66
 let _caGran = 'semaine'; // 'semaine' | 'mois'
 let _caWin  = 4;  // semaines ou mois passés à afficher
 let _caFut  = 1;  // mois futurs (prévisions) à afficher
@@ -2480,6 +2486,8 @@ function refreshPrevTotals() {
 function renderCashflowIfReady() {
   if (allTransactions.length) renderCharts(allTransactions);
 }
+window.savePrevEstimate = savePrevEstimate;
+window.refreshPrevTotals = refreshPrevTotals;
 
 window.renderPrevTable = async function() {
   await loadPrevEstimates();
@@ -2676,10 +2684,18 @@ window.renderCAChart = function() {
     const isFuture = futurePeriodKeys.includes(k);
     const monthKey = k.substring(0,7);
 
-    // Ligne verticale : tous les 4 semaines en mode semaine, chaque mois en mode mois
-    const showVLine = _caGran === 'semaine' ? (i > 0 && i % 4 === 0) : (i > 0);
-    if (showVLine) {
-      svg += `<line x1="${(pad.left+i*slotW).toFixed(1)}" y1="${pad.top}" x2="${(pad.left+i*slotW).toFixed(1)}" y2="${(pad.top+cH).toFixed(1)}" stroke="rgba(255,255,255,0.12)" stroke-width="1"/>`;
+    // Ligne verticale : avant chaque changement de mois (semaine ou mois)
+    const prevKey = allDisplayKeys[i-1];
+    const isMonthBoundary = i > 0 && (
+      _caGran === 'mois'
+        ? true  // chaque mois en vue mensuelle
+        : k.substring(0,7) !== prevKey.substring(0,7)  // changement de mois en vue semaine
+    );
+    if (isMonthBoundary) {
+      svg += `<line x1="${(pad.left+i*slotW).toFixed(1)}" y1="${pad.top}" x2="${(pad.left+i*slotW).toFixed(1)}" y2="${(pad.top+cH).toFixed(1)}" stroke="rgba(255,255,255,0.18)" stroke-width="1"/>`;
+      // Label du mois au-dessus de la ligne
+      const mName = new Date(k).toLocaleDateString('fr-FR',{month:'short'});
+      if (!isFuture) svg += `<text x="${(pad.left+i*slotW+3).toFixed(1)}" y="${(pad.top+9).toFixed(1)}" fill="rgba(255,255,255,0.3)" font-size="7.5">${mName}</text>`;
     }
 
     // Comparaison période précédente (passé seulement)
