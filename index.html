@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.41</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.42</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.41</div>
+      <div class="header-version">v3.42</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -304,7 +304,8 @@
         <div class="chart-card-title">R&eacute;partition</div>
         <div class="donut-tabs">
           <button class="donut-tab active" onclick="setDonutTab('out')">D&eacute;penses</button>
-          <button class="donut-tab" onclick="setDonutTab('in')">Entr&eacute;es</button>
+          <button class="donut-tab" onclick="setDonutTab('in')">Encaissements</button>
+          <button class="donut-tab" onclick="setDonutTab('ca')">CA activit&eacute;s</button>
         </div>
         <div class="donut-wrap" id="donutWrap">
           <div class="skeleton" style="width:120px;height:120px;border-radius:50%"></div>
@@ -582,7 +583,10 @@ window._applyCustomPeriod = async function() {
 
 window.setDonutTab = function(tab) {
   currentDonutTab = tab;
-  document.querySelectorAll('.donut-tab').forEach(b => b.classList.toggle('active', (b.textContent.includes('D\u00e9') ? 'out' : 'in') === tab));
+  document.querySelectorAll('.donut-tab').forEach(b => {
+    const t = b.textContent.includes('Dé') ? 'out' : b.textContent.includes('Enc') ? 'in' : 'ca';
+    b.classList.toggle('active', t === tab);
+  });
   renderDonut(allTransactions);
 };
 window.showTooltip = function(evt, label, inAmt, outAmt) {
@@ -857,105 +861,160 @@ function renderCashflowChart(txs) {
 }
 
 // ─── CHART: DONUT ───
-function labelGroup(label, isExpense) {
-  if (!label) return isExpense ? 'Autres d\u00e9penses' : 'Autres entr\u00e9es';
-  const l = label.toLowerCase();
-  if (!isExpense) {
-    if (/depot|d\u00e9p\u00f4t|espece|esp\b|remise esp/i.test(label)) return 'D\u00e9p\u00f4ts esp\u00e8ces';
-    if (/yavin|tpe|cb\b|carte/i.test(label)) return 'TPE / CB';
-    if (/charge:|stripe/i.test(label)) return '\u00c9v\u00e9nements';
-    if (/vir sgc|sg\b|virement re\u00e7u|vrst/i.test(label)) return 'Virements re\u00e7us';
-    if (/lokanga|herbarom|studio/i.test(label)) return 'Studios';
-    return 'Autres entr\u00e9es';
-  }
-  // D\u00e9penses — patterns Qonto-sp\u00e9cifiques d'abord
-  if (/releve carte|pr\u00e9l\u00e8v.*carte|prlv.*carte/i.test(label)) return 'Pr\u00e9l\u00e8vements CB';
-  if (/i-immersion|virement interne|vir.*interne|interne\b/i.test(label)) return 'Virements internes';
-  if (/vir.*location|vir.*loyer|vir.*bail|vir.*bar.*studi|vir.*a3|vir.*a4|f2026[0-9]/i.test(label)) return 'Loyer';
-  if (/ech pret|ech pr\u00eat|emprunt|taux=|amortissement/i.test(label)) return 'Cr\u00e9dits & pr\u00eats';
-  if (/jean louis.*biere|la biere|prlv sepa.*biere/i.test(label)) return 'Achats boissons';
-  if (/retrait dab|retrait espece/i.test(label)) return 'Retraits esp\u00e8ces';
-  // PL categories label-based
-  if (/loyer|bail|foncier/i.test(label)) return 'Loyer';
-  if (/salaire|paie|urssaf|cotis|social/i.test(label)) return 'Salaires & charges';
+
+// Catégories de dépenses opérationnelles (exclut les mouvements non-charges)
+const EXCLUDED_EXPENSE_CATS = new Set(['Virements internes','Pr\u00e9l\u00e8vements CB','Retraits esp\u00e8ces','Virements fournisseurs']);
+
+function labelExpense(label) {
+  if (!label) return 'Autres charges';
+  // Exclusions : pas des charges P&L
+  if (/i-immersion|virement interne|vir.*interne|\binterne\b/i.test(label)) return null;
+  if (/releve carte|prlv.*carte|pr\u00e9l\u00e8v.*carte/i.test(label)) return null;
+  if (/retrait dab|retrait espece/i.test(label)) return null;
+  if (/\bvir\b.*f[0-9]{3,}|vir [0-9]{6}/i.test(label) && !/location|loyer|studio|bar/i.test(label)) return null;
+  // Catégories opérationnelles
+  if (/loyer|bail|location|vir.*location|vir.*bar.*studi|vir.*a3|vir.*a4|f2026[0-9]{6,}/i.test(label)) return 'Loyer';
   if (/assurance/i.test(label)) return 'Assurances';
-  if (/tipi|portage|prestataire|sous.trait/i.test(label)) return 'Sous-traitants';
-  if (/edf|engie|\bgaz\b|electricit|\beau\b|suez/i.test(label)) return '\u00c9nergie';
-  if (/metro|cave|brasserie|crest|boisson|vins|distrib|alimentation/i.test(label)) return 'Achats boissons';
-  if (/intermarche|leclerc|auchan|carrefour|casino|mcc: 5411|mcc: 541/i.test(label)) return 'Alimentation & bar';
-  if (/amazon|microsoft|google|adobe|logiciel|saas|abonnement|licence/i.test(label)) return 'Logiciels & SaaS';
-  if (/orange|sfr|bouygues|free|\btel\b|telecom/i.test(label)) return 'T\u00e9l\u00e9phonie';
-  if (/action\b.*mcc|mcc: 531|mcc: 532|mcc: 572|mcc: 596/i.test(label)) return 'Achats divers';
-  if (/manomano|bricolag|mcc: 572/i.test(label)) return 'Mat\u00e9riaux';
-  if (/frais|agios|commission/i.test(label)) return 'Frais bancaires';
-  if (/\bvir\b.*f[0-9]|vir [0-9]{6}/i.test(label)) return 'Virements fournisseurs';
-  return 'Autres d\u00e9penses';
+  if (/edf|engie|\bgaz\b|electr|\beau\b|suez|energie/i.test(label)) return '\u00c9lectricit\u00e9 & eau';
+  if (/salaire|paie|urssaf|cotis|social|marion|aurelie|duizabo|hurtado/i.test(label)) return 'Salaires & charges';
+  if (/tipi|portage|houy|sylvain|prestataire|sous.trait/i.test(label)) return 'Sous-traitants';
+  if (/jean louis.*biere|la biere|prlv sepa.*biere|metro|cave|brasserie|crest|boisson|alimentation/i.test(label)) return 'Achats boissons';
+  if (/intermarche|leclerc|mcc: 541/i.test(label)) return 'Achats bar';
+  if (/amazon(?! pay)|microsoft|google|adobe|logiciel|saas|licence|pennylane|force7|sendin|anthropic/i.test(label)) return 'Logiciels & SaaS';
+  if (/orange|sfr|bouygues|free|gpca|\btel\b|telecom|internet/i.test(label)) return 'T\u00e9l\u00e9phone & Internet';
+  if (/ech pret|ech pr\u00eat|emprunt|taux=|cic.*int|amortiss/i.test(label)) return 'Cr\u00e9dits';
+  if (/frais|agios|commission|bank/i.test(label)) return 'Frais bancaires';
+  if (/manomano|bricolag|mcc: 572|action\b.*mcc|mcc: 531|achat.*deco|amazon pay|aliexpress|fnac/i.test(label)) return 'Achats & mat\u00e9riel';
+  if (/restaur|traiteur|repas|mcc: 5812|mcc: 5814/i.test(label)) return 'Restauration';
+  if (/deplac|km|kilometr|carburant|essence|parking|transport/i.test(label)) return 'D\u00e9placements';
+  if (/veziant|communication|communication|acoce/i.test(label)) return 'Communication';
+  return 'Autres charges';
+}
+
+function labelEncaissement(label) {
+  if (!label) return null;
+  if (/depot.*esp|remise.*esp|espece|esp\b.*\d|cash deposit/i.test(label)) return 'Esp\u00e8ces';
+  if (/yavin|tpe\b/i.test(label)) return 'TPE';
+  if (/charge:/i.test(label)) return '\u00c9v\u00e9nements';
+  if (/stripe/i.test(label)) return '\u00c9v\u00e9nements';
+  if (/vir sgc|sg\b.*bar|virement.*bar/i.test(label)) return 'Virements SGC';
+  if (/lokanga|herbarom/i.test(label)) return 'Studios';
+  if (/virement|vrst|vir\b/i.test(label)) return 'Virements re\u00e7us';
+  if (/depot|cheque|chq/i.test(label)) return 'Ch\u00e8ques & d\u00e9p\u00f4ts';
+  return null; // ignorer ce qu'on ne comprend pas
 }
 
 function renderDonut(txs) {
   const filtered = filterByPeriod(txs);
-  const isOut = currentDonutTab === 'out';
-  const subset = filtered.filter(t => isOut ? parseFloat(t.amount)<0 : parseFloat(t.amount)>0);
-  if (!subset.length) return;
+  const tab = currentDonutTab;
+  const fmtK = v => v >= 10000 ? (v/1000).toFixed(0)+'k' : v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v)+'';
+  const COLORS_OUT = ['#f87171','#fbbf24','#fb923c','#a78bfa','#60a5fa','#34d399','#94a3b8'];
+  const COLORS_IN  = ['#4ade80','#22d3ee','#fbbf24','#a78bfa','#60a5fa','#34d399','#94a3b8'];
+  const COLORS_CA  = {bar:'#f59e0b',studios:'#a78bfa',activites:'#22d3ee',tickets:'#fb7185',b2b:'#60a5fa',privatisation:'#34d399'};
 
-  const groups = {};
-  subset.forEach(t => {
-    // Priorité : catégorie PL, sinon regex
+  let groups = {};
+
+  if (tab === 'ca') {
+    // CA par activité depuis Analyse CA
+    const cachedTx = window._cachedTx || [];
+    const classifications = window._txClassifications_public || {};
+    if (!cachedTx.length) {
+      document.getElementById('donutWrap').innerHTML =
+        '<div style="color:var(--muted2);font-size:11px;text-align:center;padding:20px 10px">Scanner l\u2019onglet<br><strong>Analyse CA</strong><br>pour afficher</div>';
+      return;
+    }
+    cachedTx.forEach(t => {
+      const saved = classifications[String(t.id)];
+      if (!saved || saved.type !== 'ca' || !saved.subtype) return;
+      groups[saved.subtype] = (groups[saved.subtype]||0) + parseFloat(t.amount);
+    });
+    // Formatter les labels
+    const SUB_LABELS = {bar:'\ud83c\udfba Bar',studios:'\ud83c\udfb9 Studios',activites:'\ud83c\udfaa Activit\u00e9s',tickets:'\ud83c\udfab Tickets',b2b:'\ud83c\udfe2 B2B',privatisation:'\ud83c\udf86 Privatisation'};
+    const all = Object.entries(groups).sort((a,b)=>b[1]-a[1]);
+    const grandTotal = all.reduce((s,[,v])=>s+v,0);
+    if (!grandTotal) {
+      document.getElementById('donutWrap').innerHTML =
+        '<div style="color:var(--muted2);font-size:11px;text-align:center;padding:20px 10px">Aucune transaction<br>classifi\u00e9e</div>';
+      return;
+    }
+    const COLORS = [COLORS_CA.bar, COLORS_CA.studios, COLORS_CA.activites, COLORS_CA.tickets, COLORS_CA.b2b, COLORS_CA.privatisation];
+    const items = all.map(([k,v],i) => [SUB_LABELS[k]||k, v, COLORS[i]||'#94a3b8']);
+    renderDonutSVG(items, grandTotal, 'CA total', fmtK);
+    return;
+  }
+
+  if (tab === 'in') {
+    // Mode d'encaissement
+    filtered.filter(t => parseFloat(t.amount) > 0).forEach(t => {
+      const cat = labelEncaissement(t.label);
+      if (!cat) return; // ignorer ce qu'on ne comprend pas
+      groups[cat] = (groups[cat]||0) + parseFloat(t.amount);
+    });
+    const all = Object.entries(groups).sort((a,b)=>b[1]-a[1]);
+    const grandTotal = all.reduce((s,[,v])=>s+v,0);
+    if (!grandTotal) return;
+    const items = all.map(([k,v],i) => [k, v, COLORS_IN[i]||'#94a3b8']);
+    renderDonutSVG(items, grandTotal, 'Total', fmtK);
+    return;
+  }
+
+  // tab === 'out' : Dépenses opérationnelles
+  filtered.filter(t => parseFloat(t.amount) < 0).forEach(t => {
+    // Priorité catégorie PL si c'est une vraie charge
     const plCat = t.categories?.[0]?.label;
-    let cat = plCat || labelGroup(t.label, isOut);
-    // Normaliser quelques catégories PL trop longues
-    if (cat && cat.length > 22) cat = cat.substring(0,20)+'\u2026';
-    const amt = Math.abs(parseFloat(t.amount));
-    groups[cat] = (groups[cat]||0) + amt;
+    let cat;
+    if (plCat) {
+      // Certaines cat PL sont bien des charges
+      cat = plCat.length > 22 ? plCat.substring(0,20)+'\u2026' : plCat;
+    } else {
+      cat = labelExpense(t.label);
+    }
+    if (!cat) return; // exclure virements internes etc.
+    groups[cat] = (groups[cat]||0) + Math.abs(parseFloat(t.amount));
   });
-
-  // Top 4 + regrouper le reste dans "Autres"
   const all = Object.entries(groups).sort((a,b)=>b[1]-a[1]);
-  const top4 = all.slice(0,4);
-  const othersTotal = all.slice(4).reduce((s,[,v])=>s+v,0);
-  const othersCount = all.slice(4).length;
-  if (othersTotal > 0) top4.push([`Autres (${othersCount} cat.)`, othersTotal]);
-  const grandTotal = top4.reduce((s,[,v])=>s+v,0);
+  const top5 = all.slice(0,5);
+  const othersTotal = all.slice(5).reduce((s,[,v])=>s+v,0);
+  const othersCount = all.slice(5).length;
+  if (othersTotal > 0) top5.push([`Autres (${othersCount})`, othersTotal]);
+  const grandTotal = top5.reduce((s,[,v])=>s+v,0);
+  if (!grandTotal) return;
+  const items = top5.map(([k,v],i) => [k, v, COLORS_OUT[i]||'#94a3b8']);
+  renderDonutSVG(items, grandTotal, 'D\u00e9penses', fmtK);
+}
 
-  const COLORS = isOut
-    ? ['#f87171','#fbbf24','#fb923c','#a78bfa','#94a3b8']
-    : ['#4ade80','#60a5fa','#34d399','#fbbf24','#94a3b8'];
-
+function renderDonutSVG(items, grandTotal, centerLabel, fmtK) {
   const R=50, ri=29, cx=60, cy=60;
   let startAngle = -Math.PI/2;
   let paths = '';
-  top4.forEach(([,val],i) => {
-    const angle = (val/grandTotal)*2*Math.PI;
-    const safe = Math.min(angle, 2*Math.PI-0.001);
+  items.forEach(([,val,color]) => {
+    const angle = Math.min((val/grandTotal)*2*Math.PI, 2*Math.PI-0.001);
     const x1=cx+R*Math.cos(startAngle), y1=cy+R*Math.sin(startAngle);
-    const x2=cx+R*Math.cos(startAngle+safe), y2=cy+R*Math.sin(startAngle+safe);
+    const x2=cx+R*Math.cos(startAngle+angle), y2=cy+R*Math.sin(startAngle+angle);
     const ix1=cx+ri*Math.cos(startAngle), iy1=cy+ri*Math.sin(startAngle);
-    const ix2=cx+ri*Math.cos(startAngle+safe), iy2=cy+ri*Math.sin(startAngle+safe);
-    const large = safe>Math.PI?1:0;
-    paths += `<path d="M${x1.toFixed(2)},${y1.toFixed(2)} A${R},${R} 0 ${large} 1 ${x2.toFixed(2)},${y2.toFixed(2)} L${ix2.toFixed(2)},${iy2.toFixed(2)} A${ri},${ri} 0 ${large} 0 ${ix1.toFixed(2)},${iy1.toFixed(2)} Z" fill="${COLORS[i]}" opacity="0.88"/>`;
-    startAngle += safe;
+    const ix2=cx+ri*Math.cos(startAngle+angle), iy2=cy+ri*Math.sin(startAngle+angle);
+    const large = angle>Math.PI?1:0;
+    paths += `<path d="M${x1.toFixed(1)},${y1.toFixed(1)} A${R},${R} 0 ${large} 1 ${x2.toFixed(1)},${y2.toFixed(1)} L${ix2.toFixed(1)},${iy2.toFixed(1)} A${ri},${ri} 0 ${large} 0 ${ix1.toFixed(1)},${iy1.toFixed(1)} Z" fill="${color}" opacity="0.88"/>`;
+    startAngle += angle;
   });
-
-  const fmtK = v => v >= 10000 ? (v/1000).toFixed(0)+'k' : v >= 1000 ? (v/1000).toFixed(1)+'k' : Math.round(v)+'';
-  const legend = top4.map(([label,val],i) => {
+  const legend = items.map(([label,val,color]) => {
     const pct = Math.round(val/grandTotal*100);
     return `<div class="legend-item">
-      <div class="legend-dot" style="background:${COLORS[i]}"></div>
+      <div class="legend-dot" style="background:${color}"></div>
       <div class="legend-label" title="${label}">${label}</div>
       <span class="legend-pct">${pct}%</span>
       <div class="legend-val">${fmtK(val)}</div>
     </div>`;
   }).join('');
-
-  const totalLabel = fmtK(grandTotal);
   document.getElementById('donutWrap').innerHTML = `
     <svg class="donut-svg" width="120" height="120" viewBox="0 0 120 120">
       ${paths}
-      <text x="${cx}" y="${cy-5}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="8.5" font-family="DM Sans">${isOut?'D\u00e9penses':'Entr\u00e9es'}</text>
-      <text x="${cx}" y="${cy+11}" text-anchor="middle" fill="white" font-size="15" font-family="DM Serif Display,serif" font-weight="400">${totalLabel}</text>
+      <text x="${cx}" y="${cy-4}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="8.5" font-family="DM Sans">${centerLabel}</text>
+      <text x="${cx}" y="${cy+12}" text-anchor="middle" fill="white" font-size="15" font-family="DM Serif Display,serif">${fmtK(grandTotal)}</text>
     </svg>
     <div class="legend">${legend}</div>`;
 }
+
 
 function renderCharts(txs) {
   renderCashflowChart(txs);
@@ -1213,7 +1272,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.41
+// FOURNISSEURS — v3.42
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1450,7 +1509,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.41
+// COMPARATIF CA / CHARGES — v3.42
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -1939,7 +1998,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.41
+// ANALYSE CA — v3.42
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
@@ -1968,6 +2027,7 @@ function _autoClassify(label, amount) {
 }
 
 let _txClassifications = {};
+window._txClassifications_public = _txClassifications; // référence partagée pour le donut CA
 let _analyseLoaded = false;
 
 window._loadAnalyse = async () => {
@@ -1980,6 +2040,7 @@ window._loadAnalyse = async () => {
       get(ref(db, 'tresorerie/tx_rules'))
     ]);
     _txClassifications = snapC.val() || {};
+    window._txClassifications_public = _txClassifications;
     const txRules = snapR.val() || {};
 
     const token = await auth.currentUser.getIdToken();
@@ -2212,6 +2273,7 @@ window._loadAnalyse = async () => {
     _analyseLoaded = true;
     if(btn) { btn.textContent = '\u21bb Actualiser'; btn.disabled = false; }
     renderComparatif();
+    if (currentDonutTab === 'ca') renderDonut(allTransactions);
   } catch(e) {
     console.error('loadAnalyse error', e.message, e.stack);
     const analyseZones = ['analyseCAChart','analyseQualifyList','analyseDetail','analyseRecap'];
