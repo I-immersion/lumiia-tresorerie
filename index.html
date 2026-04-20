@@ -230,7 +230,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.37</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.38</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -246,7 +246,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.37</div>
+      <div class="header-version">v3.38</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -306,6 +306,28 @@
           <div class="skeleton" style="width:120px;height:120px;border-radius:50%"></div>
         </div>
       </div>
+    </div>
+
+    <!-- COMPARATIF CA VS CHARGES -->
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;margin-top:4px">
+      <div class="section-title" style="margin-bottom:0">Comparatif CA / Charges</div>
+      <span id="comparatifStatus" style="font-size:11px;color:var(--muted2)"></span>
+    </div>
+    <div class="chart-card" id="comparatifCard" style="padding:20px">
+      <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:16px">
+        <div>
+          <div class="chart-card-title" style="margin-bottom:4px">CA par activit&eacute; &bull; 6 derniers mois</div>
+          <div class="chart-card-sub" id="comparatifSub" style="font-size:11px">Scanner l&rsquo;onglet Analyse CA pour afficher</div>
+        </div>
+        <div id="comparatifKpiRow" style="display:flex;gap:12px;flex-wrap:wrap"></div>
+      </div>
+      <div id="comparatifChart" style="width:100%;min-height:160px;display:flex;align-items:center;justify-content:center">
+        <div style="color:var(--muted2);font-size:12px;text-align:center;padding:40px 0">
+          &#128269; Ouvrir l&rsquo;onglet <strong>Analyse CA</strong> et cliquer <strong>Actualiser</strong> pour afficher
+        </div>
+      </div>
+      <div id="comparatifMarges" style="display:flex;margin-top:6px"></div>
+      <div id="comparatifLegend" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:14px;padding-top:14px;border-top:1px solid var(--border)"></div>
     </div>
 
     <!-- KPIs -->
@@ -1068,7 +1090,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.37
+// FOURNISSEURS — v3.38
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1288,6 +1310,157 @@ document.getElementById('invPopup').addEventListener('mouseenter', () => clearTi
 document.getElementById('invPopup').addEventListener('mouseleave', () => window._hideInvPopup());
 
 // ── Navigation onglets ──
+// ─────────────────────────────────────────────
+// COMPARATIF CA / CHARGES — v3.38
+// ─────────────────────────────────────────────
+function renderComparatif() {
+  const el       = document.getElementById('comparatifChart');
+  const legendEl = document.getElementById('comparatifLegend');
+  const margesEl = document.getElementById('comparatifMarges');
+  const subEl    = document.getElementById('comparatifSub');
+  const kpiRow   = document.getElementById('comparatifKpiRow');
+  const status   = document.getElementById('comparatifStatus');
+  if (!el) return;
+
+  const txs = window._cachedTx || [];
+  if (!txs.length) {
+    el.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:40px 0">&#128269; Ouvrir l\u2019onglet <strong>Analyse CA</strong> et cliquer <strong>Actualiser</strong></div>';
+    if (legendEl) legendEl.innerHTML = '';
+    if (margesEl) margesEl.innerHTML = '';
+    if (kpiRow)   kpiRow.innerHTML   = '';
+    return;
+  }
+
+  const SUBTYPES = ['bar','studios','activites','tickets','b2b','privatisation'];
+  const SUB_COLORS = {
+    bar:'#f59e0b', studios:'#a78bfa', activites:'#22d3ee',
+    tickets:'#fb7185', b2b:'#60a5fa', privatisation:'#34d399'
+  };
+  const SUB_LABELS = {
+    bar:'\ud83c\udfba Bar', studios:'\ud83c\udfb9 Studios', activites:'\ud83c\udfaa Activit\u00e9s',
+    tickets:'\ud83c\udfab Tickets', b2b:'\ud83c\udfe2 B2B', privatisation:'\ud83c\udf86 Privatisation'
+  };
+
+  // 6 derniers mois (YYYY-MM)
+  const now = new Date();
+  const months = [];
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0'));
+  }
+
+  // CA classifié par mois × subtype
+  const byMonth = {};
+  months.forEach(m => { byMonth[m] = {}; SUBTYPES.forEach(s => { byMonth[m][s] = 0; }); byMonth[m]['autre'] = 0; });
+  txs.forEach(t => {
+    const m = t.date.substring(0,7);
+    if (!byMonth[m]) return;
+    const saved = _txClassifications[String(t.id)];
+    if (!saved || saved.type !== 'ca') return;
+    const sub = (saved.subtype && SUBTYPES.includes(saved.subtype)) ? saved.subtype : 'autre';
+    byMonth[m][sub] = (byMonth[m][sub] || 0) + parseFloat(t.amount);
+  });
+
+  // Total charges mensuelles estimées
+  const chargesTotal = Object.values(_cd)
+    .filter(c => c.periodicity !== 'ponctuel')
+    .reduce((sum, c) => sum + monthlyVal(c), 0);
+
+  // Totaux CA par mois
+  const monthTotals = months.map(m => SUBTYPES.reduce((s, sub) => s + (byMonth[m][sub] || 0), 0));
+  const maxVal = Math.max(...monthTotals, chargesTotal, 1);
+  const fmtK = n => n >= 1000 ? (n/1000).toFixed(1)+'k' : Math.round(n)+'';
+  const fmtEur = n => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(n);
+
+  // ── SVG ──
+  const W = Math.max(el.clientWidth || 500, 300);
+  const H = 170;
+  const pad = { left:46, right:14, top:14, bottom:26 };
+  const chartW = W - pad.left - pad.right;
+  const chartH = H - pad.top - pad.bottom;
+  const slotW = chartW / months.length;
+  const barW  = Math.min(Math.floor(slotW * 0.58), 48);
+
+  let svg = `<svg width="${W}" height="${H}" viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="overflow:visible;display:block">`;
+
+  // Grille horizontale
+  [0,0.25,0.5,0.75,1].forEach(f => {
+    const y = pad.top + chartH*(1-f);
+    svg += `<line x1="${pad.left}" y1="${y.toFixed(1)}" x2="${W-pad.right}" y2="${y.toFixed(1)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    if (f > 0) svg += `<text x="${pad.left-5}" y="${(y+4).toFixed(1)}" text-anchor="end" fill="rgba(255,255,255,0.2)" font-size="9">${fmtK(maxVal*f)}</text>`;
+  });
+
+  // Ligne charges (dashed rouge)
+  const chargesY = pad.top + chartH*(1 - chargesTotal/maxVal);
+  svg += `<line x1="${pad.left}" y1="${chargesY.toFixed(1)}" x2="${W-pad.right}" y2="${chargesY.toFixed(1)}" stroke="#f87171" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.75"/>`;
+  svg += `<text x="${W-pad.right+3}" y="${(chargesY+4).toFixed(1)}" fill="#f87171" font-size="9" opacity="0.75">${fmtK(chargesTotal)}</text>`;
+
+  // Barres empilées
+  months.forEach((m, i) => {
+    const cx = pad.left + i*slotW + slotW/2;
+    const x  = cx - barW/2;
+    let yBottom = pad.top + chartH;
+
+    SUBTYPES.forEach(sub => {
+      const v = byMonth[m][sub] || 0;
+      if (v <= 0) return;
+      const h = (v / maxVal) * chartH;
+      const y = yBottom - h;
+      const isFirst = (yBottom === pad.top + chartH);
+      svg += `<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${barW}" height="${h.toFixed(1)}" fill="${SUB_COLORS[sub]}" opacity="0.88"${isFirst ? ' rx="3"' : ''}/>`;
+      // Label montant si barre assez haute
+      if (h > 18) svg += `<text x="${(cx).toFixed(1)}" y="${(y + h/2 + 3.5).toFixed(1)}" text-anchor="middle" fill="rgba(0,0,0,0.65)" font-size="9" font-weight="600">${fmtK(v)}</text>`;
+      yBottom -= h;
+    });
+
+    // Label mois
+    const mLabel = new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short'});
+    svg += `<text x="${cx.toFixed(1)}" y="${H-6}" text-anchor="middle" fill="rgba(255,255,255,0.28)" font-size="9">${mLabel}</text>`;
+  });
+
+  svg += '</svg>';
+  el.innerHTML = svg;
+
+  // ── Rangée marges ──
+  let margesHtml = `<div style="display:flex;width:100%;padding-left:${pad.left}px;padding-right:${pad.right}px;box-sizing:border-box">`;
+  months.forEach(m => {
+    const caTotal = SUBTYPES.reduce((s, sub) => s + (byMonth[m][sub]||0), 0);
+    const marge   = caTotal - chargesTotal;
+    const col     = marge >= 0 ? '#4ade80' : '#f87171';
+    margesHtml += `<div style="flex:1;text-align:center;font-size:10px;font-weight:700;color:${col};letter-spacing:-0.3px">${marge>=0?'+':''}${fmtK(marge)}</div>`;
+  });
+  margesHtml += '</div>';
+  if (margesEl) margesEl.innerHTML = margesHtml;
+
+  // ── Légende ──
+  let legendHtml = '';
+  SUBTYPES.forEach(s => {
+    const total = months.reduce((sum, m) => sum + (byMonth[m][s]||0), 0);
+    if (total > 0) legendHtml += `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.55)"><div style="width:9px;height:9px;border-radius:2px;background:${SUB_COLORS[s]};flex-shrink:0"></div>${SUB_LABELS[s]} <span style="color:rgba(255,255,255,0.3)">${fmtEur(total)}</span></div>`;
+  });
+  // Ajouter légende charges
+  legendHtml += `<div style="display:flex;align-items:center;gap:5px;font-size:11px;color:rgba(255,255,255,0.55)"><div style="width:18px;height:2px;background:#f87171;opacity:0.75;border-top:2px dashed #f87171;flex-shrink:0"></div>Charges fixes <span style="color:rgba(255,255,255,0.3)">${fmtEur(chargesTotal)}/mois</span></div>`;
+  if (legendEl) legendEl.innerHTML = legendHtml;
+
+  // ── KPIs ──
+  const last3 = months.slice(-3);
+  const avgMarge = last3.reduce((s, m) => {
+    const ca = SUBTYPES.reduce((sum, sub) => sum + (byMonth[m][sub]||0), 0);
+    return s + (ca - chargesTotal);
+  }, 0) / 3;
+  const avgCA = last3.reduce((s, m) => s + SUBTYPES.reduce((sum, sub) => sum + (byMonth[m][sub]||0), 0), 0) / 3;
+  const margeRate = avgCA > 0 ? (avgMarge / avgCA * 100) : 0;
+  const margeCol = avgMarge >= 0 ? 'var(--accent)' : 'var(--danger)';
+
+  if (kpiRow) kpiRow.innerHTML =
+    `<div style="text-align:right"><div style="font-size:10px;color:var(--muted2);margin-bottom:2px">Marge moy. 3 mois</div><div style="font-size:16px;font-weight:700;color:${margeCol}">${avgMarge>=0?'+':''}${fmtEur(avgMarge)}</div></div>` +
+    `<div style="text-align:right"><div style="font-size:10px;color:var(--muted2);margin-bottom:2px">Taux de marge</div><div style="font-size:16px;font-weight:700;color:${margeCol}">${margeRate>=0?'+':''}${margeRate.toFixed(0)}%</div></div>`;
+
+  if (subEl) subEl.innerHTML = `CA identifi\u00e9 (6 mois) : <strong>${fmtEur(monthTotals.reduce((s,v)=>s+v,0))}</strong> &bull; Charges fixes : <strong>${fmtEur(chargesTotal)}/mois</strong>`;
+  if (status) status.textContent = 'Mis \u00e0 jour \u00e0 ' + new Date().toLocaleTimeString('fr-FR',{hour:'2-digit',minute:'2-digit'});
+}
+window._renderComparatif = renderComparatif;
+
 window._setTab = (tab) => {
   document.getElementById('tabContentDashboard').style.display = tab==='dashboard' ? '' : 'none';
   document.getElementById('tabContentCharges').style.display   = tab==='charges'   ? '' : 'none';
@@ -1296,6 +1469,7 @@ window._setTab = (tab) => {
   document.getElementById('tabCharges').classList.toggle('active',   tab==='charges');
   document.getElementById('tabAnalyse').classList.toggle('active',   tab==='analyse');
   if(tab==='analyse') window._loadAnalyse();
+  if(tab==='dashboard' && (window._cachedTx||[]).length) renderComparatif();
 };
 
 // ── Chargement des catégories PL ──
@@ -1626,7 +1800,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.37
+// ANALYSE CA — v3.38
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
@@ -1898,6 +2072,7 @@ window._loadAnalyse = async () => {
     window._cachedTx = entrees;
     _analyseLoaded = true;
     if(btn) { btn.textContent = '\u21bb Actualiser'; btn.disabled = false; }
+    renderComparatif();
   } catch(e) {
     console.error('loadAnalyse error', e.message, e.stack);
     const analyseZones = ['analyseCAChart','analyseQualifyList','analyseDetail','analyseRecap'];
