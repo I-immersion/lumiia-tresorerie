@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.40</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.41</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.40</div>
+      <div class="header-version">v3.41</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -697,17 +697,19 @@ function filterByPeriod(txs) {
 
 // ─── CHART: FLUX HEBDO ───
 function renderCashflowChart(txs) {
-  const filtered = filterByPeriod(txs);
+  // La courbe utilise TOUTES les données dispo (pas filtrées par période)
+  // Le filtre de période s'applique seulement aux stats du sous-titre
+  const filtered = filterByPeriod(txs); // pour les stats
   const el = document.getElementById('cashflowChart');
   const container = el ? el.parentElement : null;
-  if (!filtered.length) {
-    if (container) container.innerHTML = '<div style="text-align:center;color:var(--muted2);font-size:12px;padding:40px 0">Aucune donn\u00e9e sur cette p\u00e9riode</div>';
+  if (!txs.length) {
+    if (container) container.innerHTML = '<div style="text-align:center;color:var(--muted2);font-size:12px;padding:40px 0">Aucune donn\u00e9e disponible</div>';
     return;
   }
 
-  // ── Agréger par mois ──
+  // ── Agréger par mois (TOUTES les données, pas filtrées) ──
   const byMonth = {};
-  filtered.forEach(t => {
+  txs.forEach(t => {
     const m = t.date.substring(0,7);
     if (!byMonth[m]) byMonth[m] = {in:0, out:0};
     const a = parseFloat(t.amount);
@@ -859,25 +861,34 @@ function labelGroup(label, isExpense) {
   if (!label) return isExpense ? 'Autres d\u00e9penses' : 'Autres entr\u00e9es';
   const l = label.toLowerCase();
   if (!isExpense) {
-    if (/depot|d\u00e9p\u00f4t|espece|esp\b|cash/i.test(label)) return 'D\u00e9p\u00f4ts especes';
-    if (/yavin|tpe|cb|carte/i.test(label)) return 'TPE / CB';
-    if (/charge:|stripe/i.test(label)) return 'Ev\u00e9nements';
-    if (/vir sgc|sg|virement re\u00e7u|vrst|depot virement/i.test(label)) return 'Virements re\u00e7us';
+    if (/depot|d\u00e9p\u00f4t|espece|esp\b|remise esp/i.test(label)) return 'D\u00e9p\u00f4ts esp\u00e8ces';
+    if (/yavin|tpe|cb\b|carte/i.test(label)) return 'TPE / CB';
+    if (/charge:|stripe/i.test(label)) return '\u00c9v\u00e9nements';
+    if (/vir sgc|sg\b|virement re\u00e7u|vrst/i.test(label)) return 'Virements re\u00e7us';
     if (/lokanga|herbarom|studio/i.test(label)) return 'Studios';
     return 'Autres entr\u00e9es';
   }
-  // D\u00e9penses : utiliser cat\u00e9gorie PL si dispo (inject\u00e9e via t.categories)
-  // sinon r\u00e8gles regex par cat\u00e9gorie m\u00e9tier
+  // D\u00e9penses — patterns Qonto-sp\u00e9cifiques d'abord
+  if (/releve carte|pr\u00e9l\u00e8v.*carte|prlv.*carte/i.test(label)) return 'Pr\u00e9l\u00e8vements CB';
+  if (/i-immersion|virement interne|vir.*interne|interne\b/i.test(label)) return 'Virements internes';
+  if (/vir.*location|vir.*loyer|vir.*bail|vir.*bar.*studi|vir.*a3|vir.*a4|f2026[0-9]/i.test(label)) return 'Loyer';
+  if (/ech pret|ech pr\u00eat|emprunt|taux=|amortissement/i.test(label)) return 'Cr\u00e9dits & pr\u00eats';
+  if (/jean louis.*biere|la biere|prlv sepa.*biere/i.test(label)) return 'Achats boissons';
+  if (/retrait dab|retrait espece/i.test(label)) return 'Retraits esp\u00e8ces';
+  // PL categories label-based
   if (/loyer|bail|foncier/i.test(label)) return 'Loyer';
-  if (/salaire|paie|fiche de paie|urssaf|cotis|social|ch\u00f4mage/i.test(label)) return 'Salaires & charges';
+  if (/salaire|paie|urssaf|cotis|social/i.test(label)) return 'Salaires & charges';
   if (/assurance/i.test(label)) return 'Assurances';
-  if (/tipi|portage|mission|prestataire|sous.trait/i.test(label)) return 'Sous-traitants';
-  if (/edf|engie|gaz\b|electricit|eau\b|suez/i.test(label)) return '\u00c9nergie';
-  if (/metro|cave|brasserie|crest|boisson|vins|distrib|aliment|snack|intermarche|leclerc/i.test(label)) return 'Achats bar';
+  if (/tipi|portage|prestataire|sous.trait/i.test(label)) return 'Sous-traitants';
+  if (/edf|engie|\bgaz\b|electricit|\beau\b|suez/i.test(label)) return '\u00c9nergie';
+  if (/metro|cave|brasserie|crest|boisson|vins|distrib|alimentation/i.test(label)) return 'Achats boissons';
+  if (/intermarche|leclerc|auchan|carrefour|casino|mcc: 5411|mcc: 541/i.test(label)) return 'Alimentation & bar';
   if (/amazon|microsoft|google|adobe|logiciel|saas|abonnement|licence/i.test(label)) return 'Logiciels & SaaS';
-  if (/orange|sfr|bouygues|free|telecom|tel\b/i.test(label)) return 'T\u00e9l\u00e9phonie';
-  if (/frais|agios|commission|virement emis|vrst|pr\u00e9lev|prlv/i.test(label)) return 'Frais bancaires';
-  if (/pr\u00eat|credit|cic|bnp|lbo|emprunt/i.test(label)) return 'Cr\u00e9dits';
+  if (/orange|sfr|bouygues|free|\btel\b|telecom/i.test(label)) return 'T\u00e9l\u00e9phonie';
+  if (/action\b.*mcc|mcc: 531|mcc: 532|mcc: 572|mcc: 596/i.test(label)) return 'Achats divers';
+  if (/manomano|bricolag|mcc: 572/i.test(label)) return 'Mat\u00e9riaux';
+  if (/frais|agios|commission/i.test(label)) return 'Frais bancaires';
+  if (/\bvir\b.*f[0-9]|vir [0-9]{6}/i.test(label)) return 'Virements fournisseurs';
   return 'Autres d\u00e9penses';
 }
 
@@ -902,7 +913,8 @@ function renderDonut(txs) {
   const all = Object.entries(groups).sort((a,b)=>b[1]-a[1]);
   const top4 = all.slice(0,4);
   const othersTotal = all.slice(4).reduce((s,[,v])=>s+v,0);
-  if (othersTotal > 0) top4.push(['Autres',othersTotal]);
+  const othersCount = all.slice(4).length;
+  if (othersTotal > 0) top4.push([`Autres (${othersCount} cat.)`, othersTotal]);
   const grandTotal = top4.reduce((s,[,v])=>s+v,0);
 
   const COLORS = isOut
@@ -1201,7 +1213,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.40
+// FOURNISSEURS — v3.41
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1438,7 +1450,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.40
+// COMPARATIF CA / CHARGES — v3.41
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -1927,7 +1939,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.40
+// ANALYSE CA — v3.41
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
