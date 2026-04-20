@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.52</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.54</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.52</div>
+      <div class="header-version">v3.54</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -876,7 +876,7 @@ function renderCashflowChart(txs) {
     const sched = window._creditSchedule || {};
     let total = 0;
     for (const loan of Object.values(sched)) {
-      for (const phase of (loan.phases||[])) {
+      for (const phase of Object.values(loan.phases||{})) {
         if (monthKey >= phase.from && monthKey <= phase.to) {
           total += parseFloat(phase.monthly)||0;
           break;
@@ -884,6 +884,28 @@ function renderCashflowChart(txs) {
       }
     }
     return total;
+  }
+
+  // TVA trimestrielle due le 24 du mois suivant (avr/jul/oct/jan)
+  function tvaAtMonth(mk) {
+    const TVA_MM = {'04':true,'07':true,'10':true,'01':true};
+    const mm = mk.substring(5,7);
+    if (!TVA_MM[mm]) return 0;
+    const yr = parseInt(mk.substring(0,4));
+    const qMap = {
+      '04':[`${yr}-01`,`${yr}-02`,`${yr}-03`],
+      '07':[`${yr}-04`,`${yr}-05`,`${yr}-06`],
+      '10':[`${yr}-07`,`${yr}-08`,`${yr}-09`],
+      '01':[`${yr-1}-10`,`${yr-1}-11`,`${yr-1}-12`]
+    };
+    const qMonths = (qMap[mm]||[]).filter(m => byMonth[m]);
+    if (!qMonths.length) {
+      // Trimestre futur : estimer
+      return Math.max(0, avgIn * 3 * 0.20 - chargesOpexM * 3 * 0.20 * (20/120));
+    }
+    const caQ  = qMonths.reduce((s,m)=>s+(byMonth[m]?.in||0),0);
+    const outQ = qMonths.reduce((s,m)=>s+(byMonth[m]?.out||0),0);
+    return Math.max(0, caQ * 0.20 - outQ * (20/120));
   }
 
   const futureKeys = [];
@@ -894,7 +916,8 @@ function renderCashflowChart(txs) {
   futureKeys.forEach((k,i) => {
     const prev = i === 0 ? nowKey : futureKeys[i-1];
     const creditsThisMonth = creditAt(k);
-    const projOut = chargesOpexM + creditsThisMonth;
+    const tvaThisMonth = tvaAtMonth(k);
+    const projOut = chargesOpexM + creditsThisMonth + tvaThisMonth;
     const projNet = avgIn - projOut;
     balances[k] = (balances[prev]||ancreBalance) + projNet;
   });
@@ -1005,9 +1028,10 @@ function renderCashflowChart(txs) {
     const inp  = byMonth[m]?.in  || avgIn;
     const out2 = byMonth[m]?.out || avgOut;
     const ml   = new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short',year:'2-digit'});
-    const tipLabel = ml + (isFuture?' (proj.)':isCurrent?' (en cours)':'');
+    const tvaM = isFuture ? tvaAtMonth(m) : 0;
+    const tipLabel = ml + (isFuture ? (tvaM>0 ? ' (proj. + TVA ⚠️)' : ' (proj.)') : isCurrent?' (en cours)':'');
     const tipIn    = isFuture ? Math.round(avgIn)  : Math.round(inp);
-    const tipOut   = isFuture ? Math.round(chargesOpexM + creditAt(m)) : Math.round(out2);
+    const tipOut   = isFuture ? Math.round(chargesOpexM + creditAt(m) + tvaM) : Math.round(out2);
     svg += `<rect x="${(cx-slotW/2).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${(barsTop+cH_bars-pad.top).toFixed(1)}" fill="transparent" style="cursor:pointer"
       onmouseover="showCashTooltip(event,'${tipLabel}','${Math.round(bal)}','${tipIn}','${tipOut}')"
       onmouseout="hideTooltip()"
@@ -1499,7 +1523,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.52
+// FOURNISSEURS — v3.54
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1747,7 +1771,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.52
+// COMPARATIF CA / CHARGES — v3.54
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2247,7 +2271,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.52
+// ANALYSE CA — v3.54
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
