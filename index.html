@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.50</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.52</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.50</div>
+      <div class="header-version">v3.52</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -416,6 +416,7 @@
       <button class="charges-filter-btn active" data-filter="tout" onclick="window._filterCharges('tout')">Tout</button>
       <button class="charges-filter-btn" data-filter="fixe" onclick="window._filterCharges('fixe')" style="color:#818cf8">&#9679; Fixes</button>
       <button class="charges-filter-btn" data-filter="variable" onclick="window._filterCharges('variable')" style="color:#4ade80">&#9679; Variables</button>
+      <button class="charges-filter-btn" data-filter="credit" onclick="window._filterCharges('credit')" style="color:#f87171">&#9679; Crédits</button>
       <button class="charges-filter-btn" data-filter="invest" onclick="window._filterCharges('invest')" style="color:#fb923c">&#9679; Investissements</button>
     </div>
     <div id="chargesByMonth"></div>
@@ -864,13 +865,26 @@ function renderCashflowChart(txs) {
     balances[m] = (balances[next] || ancreBalance) - (byMonth[next]?.in||0) + (byMonth[next]?.out||0);
   }
 
-  // ── Projection 3 mois ──
+  // ── Projection 3 mois avec paliers crédits ──
   const pastComplete = monthKeys.filter(m => m < nowKey);
   const last3 = pastComplete.slice(-3);
-  const avgIn  = last3.length ? last3.reduce((s,m)=>s+(byMonth[m]?.in||0),0)/last3.length : 0;
-  const chargesM = chargesOpex(_cd);
-  const avgOut = chargesM || (last3.length ? last3.reduce((s,m)=>s+(byMonth[m]?.out||0),0)/last3.length : 0);
-  const projNet = avgIn - avgOut;
+  const avgIn = last3.length ? last3.reduce((s,m)=>s+(byMonth[m]?.in||0),0)/last3.length : 0;
+  const chargesOpexM = chargesOpex(_cd); // charges OPEX sans crédits ni invest
+
+  // Fonction : montant crédits pour un mois donné (depuis credit_schedule Firebase)
+  function creditAt(monthKey) {
+    const sched = window._creditSchedule || {};
+    let total = 0;
+    for (const loan of Object.values(sched)) {
+      for (const phase of (loan.phases||[])) {
+        if (monthKey >= phase.from && monthKey <= phase.to) {
+          total += parseFloat(phase.monthly)||0;
+          break;
+        }
+      }
+    }
+    return total;
+  }
 
   const futureKeys = [];
   for (let i = 1; i <= 3; i++) {
@@ -879,6 +893,9 @@ function renderCashflowChart(txs) {
   }
   futureKeys.forEach((k,i) => {
     const prev = i === 0 ? nowKey : futureKeys[i-1];
+    const creditsThisMonth = creditAt(k);
+    const projOut = chargesOpexM + creditsThisMonth;
+    const projNet = avgIn - projOut;
     balances[k] = (balances[prev]||ancreBalance) + projNet;
   });
 
@@ -990,7 +1007,7 @@ function renderCashflowChart(txs) {
     const ml   = new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short',year:'2-digit'});
     const tipLabel = ml + (isFuture?' (proj.)':isCurrent?' (en cours)':'');
     const tipIn    = isFuture ? Math.round(avgIn)  : Math.round(inp);
-    const tipOut   = isFuture ? Math.round(avgOut) : Math.round(out2);
+    const tipOut   = isFuture ? Math.round(chargesOpexM + creditAt(m)) : Math.round(out2);
     svg += `<rect x="${(cx-slotW/2).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${(barsTop+cH_bars-pad.top).toFixed(1)}" fill="transparent" style="cursor:pointer"
       onmouseover="showCashTooltip(event,'${tipLabel}','${Math.round(bal)}','${tipIn}','${tipOut}')"
       onmouseout="hideTooltip()"
@@ -1433,6 +1450,10 @@ async function load() {
     allTransactions = allTx;
     window._allTx = allTx; // exposé pour openMonthDetail
 
+    // Charger le planning des crédits
+    const schedSnap = await get(ref(db,'tresorerie/credit_schedule'));
+    window._creditSchedule = schedSnap.val() || {};
+
     const [invs, sups] = await reloadInvoices(dateFrom, null);
 
     renderBanks(banks);
@@ -1478,7 +1499,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.50
+// FOURNISSEURS — v3.52
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1492,7 +1513,7 @@ const PERIOD_COLOR = {
 // Charges OPEX uniquement (exclut investissements)
 function chargesOpex(cd) {
   return Object.values(cd||{})
-    .filter(c => c.periodicity !== 'ponctuel' && _catNature(c.plCategoryLabel||'') !== 'invest')
+    .filter(c => c.periodicity !== 'ponctuel' && _catNature(c.plCategoryLabel||'') !== 'invest' && _catNature(c.plCategoryLabel||'') !== 'credit')
     .reduce((s,c) => s + monthlyVal(c), 0);
 }
 
@@ -1509,6 +1530,7 @@ function _catNature(label) {
   if (!label) return 'autre';
   const l = label.toLowerCase();
   if (l.includes('invest') || l.includes('travaux') || l.includes('équipement')) return 'invest';
+  if (l.includes('crédit') || l.includes('credit') || l.includes('remboursement') || l.includes('prêt') || l.includes('emprunt')) return 'credit';
   if (l.includes('loyer') || l.includes('assurance') || l.includes('logiciel') || l.includes('abonnement') || l.includes('téléphone') || l.includes('licence') || l.includes('frais bancaire') || l.includes('honor')) return 'fixe';
   if (l.includes('achat') || l.includes('sous-trait') || l.includes('salaire') || l.includes('prestataire') || l.includes('alimentat') || l.includes('snack')) return 'variable';
   return 'fixe';
@@ -1527,12 +1549,12 @@ function renderCharges(charges) {
   const list = Object.values(charges);
   const active = list.filter(c => c.periodicity !== 'ponctuel');
   const totalAll = active.reduce((s,c) => s + monthlyVal(c), 0);
-  const total = active.filter(c => _catNature(c.plCategoryLabel||'') !== 'invest').reduce((s,c) => s + monthlyVal(c), 0);
+  const total = active.filter(c => !['invest','credit'].includes(_catNature(c.plCategoryLabel||''))).reduce((s,c) => s + monthlyVal(c), 0);
   const badge = document.getElementById('chargesTotalBadge');
   if (badge) badge.textContent = Math.round(total) + '\u00a0\u20ac/mois';
 
   // Breakdown par nature
-  const breakdown = {fixe:0, variable:0, invest:0};
+  const breakdown = {fixe:0, variable:0, invest:0, credit:0};
   active.forEach(c => {
     const n = _catNature(c.plCategoryLabel||'');
     breakdown[n] = (breakdown[n]||0) + monthlyVal(c);
@@ -1542,6 +1564,7 @@ function renderCharges(charges) {
     const items = [
       {label:'Fixes', amount:breakdown.fixe, color:'#818cf8'},
       {label:'Variables', amount:breakdown.variable, color:'#4ade80'},
+      {label:'Crédits', amount:breakdown.credit, color:'#f87171'},
       {label:'Investissements', amount:breakdown.invest, color:'#fb923c'},
     ].filter(i=>i.amount>0);
     bEl.innerHTML = items.map(i =>
@@ -1562,6 +1585,7 @@ function renderCharges(charges) {
   const filteredList = _chargesFilter === 'tout' ? list : list.filter(c => {
     if (_chargesFilter === 'fixe')     return _catNature(c.plCategoryLabel||'') === 'fixe';
     if (_chargesFilter === 'variable') return _catNature(c.plCategoryLabel||'') === 'variable';
+    if (_chargesFilter === 'credit')   return _catNature(c.plCategoryLabel||'') === 'credit';
     if (_chargesFilter === 'invest')   return _catNature(c.plCategoryLabel||'') === 'invest';
     return true;
   });
@@ -1723,7 +1747,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.50
+// COMPARATIF CA / CHARGES — v3.52
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2223,7 +2247,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.50
+// ANALYSE CA — v3.52
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
