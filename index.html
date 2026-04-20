@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.46</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.47</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.46</div>
+      <div class="header-version">v3.47</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -362,10 +362,10 @@
           </div>
           <div style="display:flex;align-items:center;gap:12px">
             <div class="accordion-meta" id="txMeta">Chargement&hellip;</div>
-            <span class="accordion-arrow" id="txArrow">&#9654;</span>
+            <span class="accordion-arrow" id="txArrow">&#9660;</span>
           </div>
         </div>
-        <div class="accordion-body" id="txAccordion" style="display:none">
+        <div class="accordion-body" id="txAccordion">
           <div id="txList"></div>
         </div>
       </div>
@@ -375,10 +375,10 @@
           <div class="accordion-title">Factures clients PL</div>
           <div style="display:flex;align-items:center;gap:12px">
             <div class="accordion-meta" id="invSub">Chargement&hellip;</div>
-            <span class="accordion-arrow" id="invArrow">&#9654;</span>
+            <span class="accordion-arrow" id="invArrow">&#9660;</span>
           </div>
         </div>
-        <div class="accordion-body" id="invAccordion" style="display:none">
+        <div class="accordion-body" id="invAccordion">
           <div id="invList"><div class="empty">&#9203;</div></div>
         </div>
       </div>
@@ -388,10 +388,10 @@
           <div class="accordion-title">Charges fournisseurs PL</div>
           <div style="display:flex;align-items:center;gap:12px">
             <div class="accordion-meta" id="supSub">Chargement&hellip;</div>
-            <span class="accordion-arrow" id="supArrow">&#9654;</span>
+            <span class="accordion-arrow" id="supArrow">&#9660;</span>
           </div>
         </div>
-        <div class="accordion-body" id="supAccordion" style="display:none">
+        <div class="accordion-body" id="supAccordion">
           <div id="supList"><div class="empty">&#9203;</div></div>
         </div>
       </div>
@@ -611,12 +611,28 @@ window.showCashTooltip = function(evt, label, solde, inAmt, outAmt) {
     <span style="color:var(--info);font-weight:600">Solde\u00a0: ${fmtE(solde)}</span><br>
     <span style="color:var(--accent)">\u2197 Entr\u00e9es\u00a0: +${fmtE(inAmt)}</span><br>
     <span style="color:var(--danger)">\u2198 D\u00e9penses\u00a0: -${fmtE(outAmt)}</span><br>
-    <span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net\u00a0: ${net>=0?'+':''}${fmtE(net)}</span>`;
+    <span style="color:${net>=0?'var(--accent)':'var(--danger)'};font-weight:600">Net\u00a0: ${net>=0?'+':''}${fmtE(net)}</span>
+    <div style="margin-top:8px;padding-top:7px;border-top:1px solid rgba(255,255,255,0.08)">
+      <span onclick="openVerification()" style="color:var(--info);font-size:11px;cursor:pointer;text-decoration:underline;text-decoration-style:dotted">\u2193 Voir le d\u00e9tail des mouvements</span>
+    </div>`;
   tt.style.display = 'block';
   tt.style.left = (evt.clientX + 16) + 'px';
   tt.style.top  = (evt.clientY - 10) + 'px';
 };
 window.scrollToFournisseurs = function() { document.getElementById('card-fournisseurs')?.scrollIntoView({behavior:'smooth',block:'start'}); };
+window.openVerification = function() {
+  hideTooltip();
+  const txBody = document.getElementById('txAccordion');
+  const txArrow = document.getElementById('txArrow');
+  // Ouvrir l'accordéon mouvements si pas déjà ouvert
+  if (txBody && !txBody.classList.contains('open')) {
+    txBody.classList.add('open');
+    if (txArrow) txArrow.classList.add('open');
+  }
+  // Scroll vers la section Vérification
+  const section = document.getElementById('section-factures');
+  if (section) section.scrollIntoView({behavior:'smooth', block:'start'});
+};
 
 window.toggleAccordion = function(id) {
   const body = document.getElementById(id);
@@ -1370,7 +1386,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.46
+// FOURNISSEURS — v3.47
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1607,7 +1623,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.46
+// COMPARATIF CA / CHARGES — v3.47
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2096,7 +2112,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.46
+// ANALYSE CA — v3.47
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
