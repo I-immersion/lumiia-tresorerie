@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.62</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.63</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.62</div>
+      <div class="header-version">v3.63</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1623,7 +1623,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.62
+// FOURNISSEURS — v3.63
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1871,7 +1871,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.62
+// COMPARATIF CA / CHARGES — v3.63
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2371,7 +2371,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.62
+// ANALYSE CA — v3.63
 let _caGran = 'semaine'; // 'semaine' | 'mois'
 let _caWin  = 8;         // nombre de semaines ou de mois à afficher
 
@@ -2428,16 +2428,31 @@ async function loadPrevEstimates() {
 async function savePrevEstimate(monthKey, subtype, value) {
   _prevEstimates[monthKey] = _prevEstimates[monthKey] || {};
   _prevEstimates[monthKey][subtype] = parseFloat(value) || 0;
+  refreshPrevTotals(); // mise à jour immédiate du total sans re-render
   try {
     await update(ref(db, 'tresorerie/ca_estimates/' + monthKey), {[subtype]: parseFloat(value)||0});
     const st = document.getElementById('prevSaveStatus');
     if (st) { st.textContent = '\u2713 Sauvegard\u00e9'; setTimeout(()=>{ if(st) st.textContent=''; }, 2000); }
-    // Mettre à jour la projection
     renderCashflowIfReady();
   } catch(e) {
     const st = document.getElementById('prevSaveStatus');
     if (st) st.textContent = '\u26a0 Erreur de sauvegarde';
   }
+}
+
+function refreshPrevTotals() {
+  // Recalculer les totaux depuis les inputs DOM (pas depuis _prevEstimates)
+  const foot = document.getElementById('prevFoot');
+  if (!foot) return;
+  const tds = foot.querySelectorAll('td.prev-td.total-row:not(.act)');
+  tds.forEach(td => {
+    const m = td.dataset.month;
+    if (!m) return;
+    const inputs = document.querySelectorAll(`.prev-input[data-month="${m}"]`);
+    const total = Array.from(inputs).reduce((s,inp)=>s+(parseFloat(inp.value)||0),0);
+    const fmtEur = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+    td.innerHTML = total > 0 ? `<strong style="color:#60a5fa">${fmtEur(total)}</strong>` : '<span style="opacity:.3">\u2014</span>';
+  });
 }
 
 function renderCashflowIfReady() {
@@ -2510,15 +2525,16 @@ window.renderPrevTable = async function() {
   // Totaux
   const foot = document.getElementById('prevFoot');
   const pastTotals = pastMonths.map(m => PREV_SUBTYPES.reduce((s,sub)=>s+(realized[m]?.[sub]||0),0));
-  const futureTotals = futureMonths.map(m => PREV_SUBTYPES.reduce((s,sub)=>s+(_prevEstimates[m]?.[sub]||0),0));
   foot.innerHTML = '<tr>'
     + '<td class="prev-td total-row act" style="color:var(--muted2)">Total CA</td>'
     + pastTotals.map(v => `<td class="prev-td total-row real" style="color:var(--text)">${fmtEur(v)}</td>`).join('')
-    + futureTotals.map(v => `<td class="prev-td total-row" style="color:#60a5fa">${v > 0 ? fmtEur(v) : '<span style="opacity:.3">—</span>'}</td>`).join('')
+    + futureMonths.map(m => `<td class="prev-td total-row" data-month="${m}"><span style="opacity:.3">\u2014</span></td>`).join('')
     + '</tr>';
 
   // Exposer les estimates pour la projection
   window._prevEstimates = _prevEstimates;
+  // Initialiser les totaux depuis les estimates déjà chargés
+  setTimeout(refreshPrevTotals, 50);
 };
 
 window.renderCAChart = function() {
@@ -2561,7 +2577,11 @@ window.renderCAChart = function() {
   const allKeys  = Object.keys(byPeriod).sort();
 
   // Fenêtre courante
-  const n = _caGran === 'semaine' ? _caWin : (_caWin === 8 ? 3 : _caWin === 12 ? 6 : 12);
+  // Nombre de périodes à afficher
+  // En mode semaine : _caWin = nombre de semaines (8/12/24)
+  // En mode mois : _caWin = 8→3M, 12→6M, 24→12M
+  const MOIS_MAP = {8:3, 12:6, 24:12};
+  const n = _caGran === 'semaine' ? _caWin : (MOIS_MAP[_caWin] || 3);
   const currentKeys = allKeys.slice(-n);
   if (!currentKeys.length) {
     el.innerHTML = '<div style="color:var(--muted2);font-size:12px;text-align:center;padding:30px 0">Aucune donn\u00e9e classifi\u00e9e</div>';
@@ -2573,8 +2593,8 @@ window.renderCAChart = function() {
 
   // ── SVG ──
   const W = Math.max(el.clientWidth||500, 300);
-  const H = 170;
-  const pad = {left:42, right:10, top:14, bottom:26};
+  const H = 175;
+  const pad = {left:42, right:10, top:14, bottom:30};
   const cW = W - pad.left - pad.right;
   const cH = H - pad.top - pad.bottom;
   const slotW = cW / currentKeys.length;
@@ -2629,14 +2649,24 @@ window.renderCAChart = function() {
     });
     // Tooltip zone
     const d = new Date(k);
+    const wk = _caGran === 'semaine' ? getISOWeek(d) : null;
     const lbl = _caGran === 'semaine'
-      ? 'S'+getISOWeek(d).week+' ('+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})+')'
-      : d.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'});
+      ? 'S'+wk.week+' \u2013 '+d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})
+      : d.toLocaleDateString('fr-FR',{month:'long',year:'2-digit'});
     svg += `<rect x="${(pad.left+i*slotW).toFixed(1)}" y="${pad.top}" width="${slotW.toFixed(1)}" height="${cH}" fill="transparent" style="cursor:pointer"
       onmouseover="showTooltip(event,'${lbl}','${Math.round(total)}','0')"
       onmouseout="hideTooltip()"/>`;
-    // Label
-    svg += `<text x="${cx.toFixed(1)}" y="${H-4}" text-anchor="middle" fill="rgba(255,255,255,0.25)" font-size="8.5">${lbl.split(' ')[0]}</text>`;
+    // Séparateur vertical léger entre périodes
+    if (i > 0) {
+      svg += `<line x1="${(pad.left+i*slotW).toFixed(1)}" y1="${pad.top}" x2="${(pad.left+i*slotW).toFixed(1)}" y2="${(pad.top+cH).toFixed(1)}" stroke="rgba(255,255,255,0.05)" stroke-width="1"/>`;
+    }
+    // Label X : numéro de semaine + date de début
+    if (_caGran === 'semaine') {
+      svg += `<text x="${cx.toFixed(1)}" y="${H-12}" text-anchor="middle" fill="rgba(255,255,255,0.55)" font-size="9" font-weight="600">S${wk.week}</text>`;
+      svg += `<text x="${cx.toFixed(1)}" y="${H-2}" text-anchor="middle" fill="rgba(255,255,255,0.2)" font-size="7.5">${d.toLocaleDateString('fr-FR',{day:'2-digit',month:'short'})}</text>`;
+    } else {
+      svg += `<text x="${cx.toFixed(1)}" y="${H-4}" text-anchor="middle" fill="rgba(255,255,255,0.35)" font-size="9">${d.toLocaleDateString('fr-FR',{month:'short',year:'2-digit'})}</text>`;
+    }
   });
 
   svg += '</svg>';
