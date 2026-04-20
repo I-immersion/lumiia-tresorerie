@@ -234,7 +234,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.54</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.55</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -250,7 +250,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.54</div>
+      <div class="header-version">v3.55</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1026,7 +1026,7 @@ function renderCashflowChart(txs) {
     const isCurrent = m === nowKey;
     const cx = xOf(i), cy = yOfB(bal);
     const inp  = byMonth[m]?.in  || avgIn;
-    const out2 = byMonth[m]?.out || avgOut;
+    const out2 = byMonth[m]?.out || chargesOpexM;
     const ml   = new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short',year:'2-digit'});
     const tvaM = isFuture ? tvaAtMonth(m) : 0;
     const tipLabel = ml + (isFuture ? (tvaM>0 ? ' (proj. + TVA ⚠️)' : ' (proj.)') : isCurrent?' (en cours)':'');
@@ -1523,7 +1523,7 @@ function initChargesModule() {
 
 
 // ─────────────────────────────────────────────
-// FOURNISSEURS — v3.54
+// FOURNISSEURS — v3.55
 // ─────────────────────────────────────────────
 const PERIOD_LABEL = {
   mensuel: 'Mensuel', bimestriel: 'Bimestriel', irregulier: 'Variable',
@@ -1771,7 +1771,7 @@ document.getElementById('invPopup').addEventListener('mouseleave', () => window.
 
 // ── Navigation onglets ──
 // ─────────────────────────────────────────────
-// COMPARATIF CA / CHARGES — v3.54
+// COMPARATIF CA / CHARGES — v3.55
 // ─────────────────────────────────────────────
 function renderComparatif() {
   const el       = document.getElementById('comparatifChart');
@@ -2271,7 +2271,7 @@ async function _writeCatToPennylane(chargeName, catId) {
 function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');}
 
 // ═══════════════════════════════════════════════════════
-// ANALYSE CA — v3.54
+// ANALYSE CA — v3.55
 // ═══════════════════════════════════════════════════════
 
 const CA_PATTERNS = [
