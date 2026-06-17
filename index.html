@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.4</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.5</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v4.4</div>
+      <div class="header-version">v4.5</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -327,7 +327,11 @@
         <div class="chart-card-sub" id="chartSub">Chargement&hellip;</div>
         <svg id="cashflowChart" class="chart-svg" height="160"></svg>
       </div>
-      <div class="chart-card">
+      <div class="chart-card" id="bilanCard">
+        <div class="chart-card-title">Bilan de la p&eacute;riode</div>
+        <div id="bilanWrap"><div class="skeleton" style="height:120px"></div></div>
+      </div>
+      <div class="chart-card" id="donutCard">
         <div class="chart-card-title">R&eacute;partition</div>
         <div class="donut-tabs">
           <button class="donut-tab active" onclick="setDonutTab('out')">D&eacute;penses</button>
@@ -1360,8 +1364,30 @@ function renderDonutSVG(items, grandTotal, centerLabel, fmtK) {
 }
 
 
+function renderBilan(txs) {
+  const wrap = document.getElementById('bilanWrap');
+  if(!wrap) return;
+  const f = filterByPeriod(txs);
+  const isInternal = l => /virement interne/i.test(l||'') || /^i-immersion$/i.test((l||'').trim());
+  let entrees=0, sorties=0;
+  f.forEach(t => { if(isInternal(t.label)) return; const a=parseFloat(t.amount)||0; if(a>0) entrees+=a; else sorties+=-a; });
+  const resultat = entrees - sorties;
+  const fmtB = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+  const maxv = Math.max(entrees, sorties, 1);
+  const pos='var(--accent)', neg='var(--danger)';
+  const resCol = resultat>=0 ? pos : neg;
+  const pLabel = (typeof periodLabel==='function' ? periodLabel(currentPeriod) : '') || '';
+  const bar = (label,val,col) => { const w=Math.max(2,Math.round(val/maxv*100)); return `<div><div style=\"display:flex;justify-content:space-between;font-size:12px;margin-bottom:3px\"><span style=\"color:var(--muted2)\">${label}</span><span style=\"color:var(--text);font-weight:700\">${fmtB(val)}</span></div><div style=\"height:10px;background:var(--border);border-radius:5px;overflow:hidden\"><div style=\"height:100%;width:${w}%;background:${col};border-radius:5px\"></div></div></div>`; };
+  wrap.innerHTML =
+    `<div style=\"text-align:center;margin-bottom:16px\"><div style=\"font-size:10.5px;color:var(--muted2);text-transform:uppercase;letter-spacing:.05em\">Sur ${pLabel}</div>`
+    + `<div style=\"font-size:30px;font-weight:800;color:${resCol};line-height:1.15;margin-top:2px\">${resultat>=0?'+':''}${fmtB(resultat)}</div>`
+    + `<div style=\"font-size:11px;color:var(--muted2);margin-top:1px\">Tr\u00e9sorerie en ${resultat>=0?'hausse':'baisse'}</div></div>`
+    + `<div style=\"display:flex;flex-direction:column;gap:11px\">${bar('Entr\u00e9es',entrees,pos)}${bar('Sorties',sorties,neg)}</div>`;
+}
+
 function renderCharts(txs) {
   renderCashflowChart(txs);
+  renderBilan(txs);
   renderDonut(txs);
 }
 
@@ -2178,6 +2204,7 @@ window._setTab = (tab) => {
   document.getElementById('tabContentDashboard').style.display = tab==='dashboard' ? '' : 'none';
   document.getElementById('tabContentCharges').style.display   = tab==='charges'   ? '' : 'none';
   document.getElementById('tabContentAnalyse').style.display   = tab==='analyse'   ? '' : 'none';
+  if(tab==='analyse'){ const _dc=document.getElementById('donutCard'), _ta=document.getElementById('tabContentAnalyse'); if(_dc&&_ta&&_dc.parentNode!==_ta) _ta.appendChild(_dc); }
   document.getElementById('tabDashboard').classList.toggle('active', tab==='dashboard');
   document.getElementById('tabCharges').classList.toggle('active',   tab==='charges');
   document.getElementById('tabAnalyse').classList.toggle('active',   tab==='analyse');
