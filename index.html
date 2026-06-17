@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.1</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.2</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v4.1</div>
+      <div class="header-version">v4.2</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -274,6 +274,7 @@
     <button class="tab-btn active" id="tabDashboard" onclick="window._setTab('dashboard')">&#128202; Tableau de bord</button>
     <button class="tab-btn" id="tabCharges" onclick="window._setTab('charges')">&#128200; Charges r&eacute;currentes <span id="chargesNavBadge" class="tab-badge" style="display:none"></span></button>
     <button class="tab-btn" id="tabAnalyse" onclick="window._setTab('analyse')">&#128269; Analyse CA</button>
+    <button class="tab-btn" id="tabFactures" onclick="window._setTab('factures')">&#129534; Factures</button>
   </div>
 
   <div class="content" id="tabContentDashboard">
@@ -1472,10 +1473,13 @@ function periodLabel(p, dateFrom, dateTo) {
 }
 
 function renderKPIs(invoices, suppliers, period, dateFrom, dateTo) {
-  const outstanding = invoices.filter(i=>i.status!=='paid');
-  const late = invoices.filter(i=>i.status==='late');
-  const totalOut = outstanding.reduce((s,i)=>s+parseFloat(i.amount),0);
-  const totalLate = late.reduce((s,i)=>s+parseFloat(i.amount),0);
+  // v4.2 — exclure les factures deja encaissees mais non rapprochees dans PL (ex. Audeval)
+  const _paidLbl = (window._allTx||[]).map(t=>(t.label||'').toUpperCase());
+  const _enc = i => { if(parseFloat(i.remaining_amount_with_tax)===0) return true; const x=(i.invoice_number||'').toUpperCase().trim(); return !!x && _paidLbl.some(l=>l.includes(x)); };
+  const outstanding = invoices.filter(i=>i.status!=='paid' && !_enc(i));
+  const late = invoices.filter(i=>i.status==='late' && !_enc(i));
+  const totalOut = outstanding.reduce((s,i)=>s+(parseFloat(i.remaining_amount_with_tax||i.amount)||0),0);
+  const totalLate = late.reduce((s,i)=>s+(parseFloat(i.remaining_amount_with_tax||i.amount)||0),0);
   const totalSup = suppliers.reduce((s,i)=>s+parseFloat(i.amount),0);
 
   document.getElementById('kpi1').innerHTML = `<div class="kpi-label">Factures clients en cours</div><div class="kpi-value" style="color:var(--accent)">${fmt(totalOut)}</div><div class="kpi-sub">${outstanding.length} \u00e0 encaisser</div><div class="kpi-bar" style="background:var(--accent);opacity:.3"></div>`;
@@ -2158,6 +2162,32 @@ window._renderDashTodo = async function() {
 };
 setTimeout(() => { if (window._renderDashTodo) window._renderDashTodo(); }, 1800);
 
+window._renderFactures = async function() {
+  let cont = document.getElementById('tabContentFactures');
+  if(!cont){ cont=document.createElement('div'); cont.className='content'; cont.id='tabContentFactures'; cont.style.display='none'; const dash=document.getElementById('tabContentDashboard'); if(dash&&dash.parentNode) dash.parentNode.appendChild(cont); }
+  if(!auth.currentUser){ setTimeout(()=>window._renderFactures(),1000); return; }
+  cont.innerHTML='<div style="color:var(--muted2);font-size:13px;padding:20px 0">Chargement des factures\u2026</div>';
+  try {
+    let invoices = window._invoicesCache;
+    if(!invoices){ const token=await auth.currentUser.getIdToken(); const r=await fetch(PROXY+'/customer_invoices?limit=100',{headers:{Authorization:'Bearer '+token}}).then(r=>r.json()); invoices=r.items||[]; window._invoicesCache=invoices; }
+    const paidLbl=(window._allTx||[]).map(t=>(t.label||'').toUpperCase());
+    const encaissee=i=>{ if(parseFloat(i.remaining_amount_with_tax)===0) return true; const x=(i.invoice_number||'').toUpperCase().trim(); return !!x && paidLbl.some(l=>l.includes(x)); };
+    const mnt=i=>parseFloat(i.remaining_amount_with_tax||i.amount)||0;
+    const fmtE=v=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+    const nom=i=>extractName(i.label)||((i.label||'').replace(/\s*\(label g\u00e9n\u00e9r\u00e9\)\s*/i,''))||'Client';
+    const retard=invoices.filter(i=>i.status==='late'&&!encaissee(i)).sort((a,b)=>(a.deadline||'').localeCompare(b.deadline||''));
+    const avenir=invoices.filter(i=>i.status==='upcoming'&&!encaissee(i)).sort((a,b)=>(a.deadline||'').localeCompare(b.deadline||''));
+    const payees=invoices.filter(i=>i.status==='paid'||encaissee(i)).sort((a,b)=>(b.date||'').localeCompare(a.date||''));
+    const totalDu=[...retard,...avenir].reduce((s,i)=>s+mnt(i),0);
+    const row=(i,color)=>'<div style="display:flex;align-items:center;gap:12px;padding:12px 14px;border-bottom:1px solid var(--border)"><div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nom(i)+'</div><div style="font-size:11px;color:var(--muted2)">'+(i.invoice_number||'')+' \u00b7 \u00e9mise '+(i.date?shortDate(i.date):'?')+(i.deadline?' \u00b7 \u00e9ch. '+shortDate(i.deadline):'')+'</div></div><div style="font-size:14px;font-weight:600;color:'+color+';white-space:nowrap">'+fmtE(mnt(i))+'</div></div>';
+    const section=(t,list,color)=> !list.length ? '' : '<div style="margin-bottom:20px"><div class="section-title" style="margin-bottom:8px">'+t+' <span style="font-size:12px;color:var(--muted2);font-weight:400">('+list.length+')</span></div><div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">'+list.map(i=>row(i,color)).join('')+'</div></div>';
+    cont.innerHTML='<div style="display:flex;align-items:baseline;gap:10px;margin-bottom:18px;flex-wrap:wrap"><div class="section-title" style="margin-bottom:0">Factures clients</div><div style="font-size:13px;color:var(--muted2)">Reste \u00e0 encaisser : <strong style="color:var(--accent)">'+fmtE(totalDu)+'</strong></div></div>'
+      + section('\u23f0 En retard', retard, 'var(--danger)')
+      + section('\ud83d\udcc5 \u00c0 venir', avenir, 'var(--text)')
+      + section('\u2713 Pay\u00e9es (r\u00e9centes)', payees.slice(0,12), 'var(--accent)');
+  } catch(e){ console.warn('factures',e); cont.innerHTML='<div style="color:var(--muted2);padding:20px 0">Erreur de chargement des factures.</div>'; }
+};
+
 window._setTab = (tab) => {
   document.getElementById('tabContentDashboard').style.display = tab==='dashboard' ? '' : 'none';
   document.getElementById('tabContentCharges').style.display   = tab==='charges'   ? '' : 'none';
@@ -2168,6 +2198,9 @@ window._setTab = (tab) => {
   if(tab==='analyse') window._loadAnalyse();
   if(tab==='dashboard' && (window._cachedTx||[]).length) renderComparatif();
   if(tab==='dashboard' && window._renderDashTodo) window._renderDashTodo();
+  const _fc=document.getElementById('tabContentFactures'); if(_fc) _fc.style.display = tab==='factures' ? '' : 'none';
+  const _fb=document.getElementById('tabFactures'); if(_fb) _fb.classList.toggle('active', tab==='factures');
+  if(tab==='factures' && window._renderFactures) window._renderFactures();
 };
 
 // ── Chargement des catégories PL ──
