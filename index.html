@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.2</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.3</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v4.2</div>
+      <div class="header-version">v4.3</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -627,6 +627,25 @@ function extractName(label) {
   if(!label) return null;
   const m = label.match(/^Facture\s+(.+?)\s+-\s+/);
   return m ? m[1] : null;
+}
+
+// v4.3 — une facture est consideree encaissee si : reste a payer 0, OU son numero apparait
+// dans un libelle bancaire, OU une transaction credit du meme montant porte le nom du client
+// (couvre les encaissements non rapproches dans Pennylane, ex. Audeval, Asso des commercants).
+function invoiceSettled(f, txAll) {
+  if(!f) return false;
+  if(parseFloat(f.remaining_amount_with_tax) === 0) return true;
+  txAll = txAll || [];
+  const ref = (f.invoice_number||'').toUpperCase().trim();
+  if(ref && txAll.some(t => (t.label||'').toUpperCase().includes(ref))) return true;
+  const targets = [parseFloat(f.amount), parseFloat(f.remaining_amount_with_tax)].filter(x => x > 0);
+  const nm = (f.label||'').match(/^Facture\s+(.+?)\s+-\s+/i);
+  const cli = nm ? nm[1].toUpperCase() : '';
+  const key = (cli.split(/[\s,]+/).filter(w => w.length > 4)[0]) || '';
+  if(key && targets.length) {
+    return txAll.some(t => { const a = parseFloat(t.amount); return a > 0 && targets.some(x => Math.abs(a - x) < 0.5) && (t.label||'').toUpperCase().includes(key); });
+  }
+  return false;
 }
 
 document.getElementById('headerDate').textContent = new Date().toLocaleDateString('fr-FR',{weekday:'long',day:'numeric',month:'long',year:'numeric'});
@@ -1474,8 +1493,7 @@ function periodLabel(p, dateFrom, dateTo) {
 
 function renderKPIs(invoices, suppliers, period, dateFrom, dateTo) {
   // v4.2 — exclure les factures deja encaissees mais non rapprochees dans PL (ex. Audeval)
-  const _paidLbl = (window._allTx||[]).map(t=>(t.label||'').toUpperCase());
-  const _enc = i => { if(parseFloat(i.remaining_amount_with_tax)===0) return true; const x=(i.invoice_number||'').toUpperCase().trim(); return !!x && _paidLbl.some(l=>l.includes(x)); };
+  const _enc = i => invoiceSettled(i, window._allTx||[]);
   const outstanding = invoices.filter(i=>i.status!=='paid' && !_enc(i));
   const late = invoices.filter(i=>i.status==='late' && !_enc(i));
   const totalOut = outstanding.reduce((s,i)=>s+(parseFloat(i.remaining_amount_with_tax||i.amount)||0),0);
@@ -1590,6 +1608,10 @@ async function load() {
     }
     allTransactions = allTx;
     window._allTx = allTx; // exposé pour openMonthDetail
+    // v4.3 — recalculer encart + onglet Factures une fois les transactions chargees (exclusion fiable des factures deja encaissees)
+    if (window._renderDashTodo) window._renderDashTodo();
+    const _ftab = document.getElementById('tabContentFactures');
+    if (window._renderFactures && _ftab && _ftab.style.display !== 'none') window._renderFactures();
 
     // Charger le planning des crédits
     const schedSnap = await get(ref(db,'tresorerie/credit_schedule'));
@@ -2067,25 +2089,17 @@ window._renderDashTodo = async function() {
   const el = document.getElementById('dashTodo');
   if (!el) return;
   if (!auth.currentUser) { setTimeout(() => window._renderDashTodo(), 1200); return; }
-  const fmtEur = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+  const fmtEur = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
   try {
-    // 1. Factures clients en retard (Pennylane, mises en cache pour la session)
-    let invoices = window._invoicesCache;
-    if (!invoices) {
-      const token = await auth.currentUser.getIdToken();
-      const r = await fetch(PROXY + '/customer_invoices?limit=100', {headers:{Authorization:'Bearer '+token}}).then(r=>r.json());
-      invoices = r.items || [];
-      window._invoicesCache = invoices;
-    }
+    // 1. Factures clients en retard (Pennylane, rechargees a chaque rendu pour refleter les rapprochements recents)
+    const token = await auth.currentUser.getIdToken();
+    const r = await fetch(PROXY + '/customer_invoices?limit=100', {headers:{Authorization:'Bearer '+token}}).then(r=>r.json());
+    const invoices = r.items || [];
+    window._invoicesCache = invoices;
     // Exclure les factures "late" déjà encaissées mais non rapprochées dans Pennylane
     // (sinon on afficherait "à encaisser" un montant déjà rentré, ex. Audeval).
     const txAll = window._allTx || window._cachedTx || [];
-    const paidLabels = txAll.map(t => (t.label||'').toUpperCase());
-    const dejaEncaissee = f => {
-      if (parseFloat(f.remaining_amount_with_tax) === 0) return true;
-      const ref = (f.invoice_number||'').toUpperCase().trim();
-      return !!ref && paidLabels.some(l => l.includes(ref));
-    };
+    const dejaEncaissee = f => invoiceSettled(f, txAll);
     const late = invoices.filter(f => f.status === 'late' && !dejaEncaissee(f));
     const lateAmount = late.reduce((s,f)=>s+(parseFloat(f.remaining_amount_with_tax||f.amount)||0),0);
 
@@ -2168,12 +2182,10 @@ window._renderFactures = async function() {
   if(!auth.currentUser){ setTimeout(()=>window._renderFactures(),1000); return; }
   cont.innerHTML='<div style="color:var(--muted2);font-size:13px;padding:20px 0">Chargement des factures\u2026</div>';
   try {
-    let invoices = window._invoicesCache;
-    if(!invoices){ const token=await auth.currentUser.getIdToken(); const r=await fetch(PROXY+'/customer_invoices?limit=100',{headers:{Authorization:'Bearer '+token}}).then(r=>r.json()); invoices=r.items||[]; window._invoicesCache=invoices; }
-    const paidLbl=(window._allTx||[]).map(t=>(t.label||'').toUpperCase());
-    const encaissee=i=>{ if(parseFloat(i.remaining_amount_with_tax)===0) return true; const x=(i.invoice_number||'').toUpperCase().trim(); return !!x && paidLbl.some(l=>l.includes(x)); };
+    const token=await auth.currentUser.getIdToken(); const r=await fetch(PROXY+'/customer_invoices?limit=100',{headers:{Authorization:'Bearer '+token}}).then(rr=>rr.json()); const invoices=r.items||[]; window._invoicesCache=invoices;
+    const encaissee=i=>invoiceSettled(i, window._allTx||[]);
     const mnt=i=>parseFloat(i.remaining_amount_with_tax||i.amount)||0;
-    const fmtE=v=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+    const fmtE=v=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',minimumFractionDigits:2,maximumFractionDigits:2}).format(v);
     const nom=i=>extractName(i.label)||((i.label||'').replace(/\s*\(label g\u00e9n\u00e9r\u00e9\)\s*/i,''))||'Client';
     const retard=invoices.filter(i=>i.status==='late'&&!encaissee(i)).sort((a,b)=>(a.deadline||'').localeCompare(b.deadline||''));
     const avenir=invoices.filter(i=>i.status==='upcoming'&&!encaissee(i)).sort((a,b)=>(a.deadline||'').localeCompare(b.deadline||''));
@@ -2185,6 +2197,7 @@ window._renderFactures = async function() {
       + section('\u23f0 En retard', retard, 'var(--danger)')
       + section('\ud83d\udcc5 \u00c0 venir', avenir, 'var(--text)')
       + section('\u2713 Pay\u00e9es (r\u00e9centes)', payees.slice(0,12), 'var(--accent)');
+    cont.style.display='';
   } catch(e){ console.warn('factures',e); cont.innerHTML='<div style="color:var(--muted2);padding:20px 0">Erreur de chargement des factures.</div>'; }
 };
 
