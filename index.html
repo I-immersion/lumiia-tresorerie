@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.5</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.6</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v4.5</div>
+      <div class="header-version">v4.6</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1677,19 +1677,24 @@ const PERIOD_COLOR = {
 };
 
 // Charges OPEX uniquement (exclut investissements)
+// v4.6 — ne compter que les charges a frequence reguliere definie.
+// Les entrees 'irregulier', 'ponctuel' ou sans frequence (imports de transactions ponctuelles :
+// climatisation, Amazon, sous-traitance...) ne sont PAS des charges mensuelles recurrentes.
+const PERIODICITE_REGULIERE = ['mensuel','bimestriel','trimestriel','semestriel','annuel'];
 function chargesOpex(cd) {
   return Object.values(cd||{})
-    .filter(c => c.periodicity !== 'ponctuel' && _catNature(c.plCategoryLabel||'') !== 'invest' && _catNature(c.plCategoryLabel||'') !== 'credit')
+    .filter(c => PERIODICITE_REGULIERE.includes(c.periodicity) && _catNature(c.plCategoryLabel||'') !== 'invest' && _catNature(c.plCategoryLabel||'') !== 'credit')
     .reduce((s,c) => s + monthlyVal(c), 0);
 }
 
 function monthlyVal(c) {
   const r = parseFloat(c.monthlyRef)||0;
+  if (c.periodicity==='mensuel') return r;
   if (c.periodicity==='bimestriel') return r/2;
   if (c.periodicity==='trimestriel') return r/3;
+  if (c.periodicity==='semestriel') return r/6;
   if (c.periodicity==='annuel') return r/12;
-  if (c.periodicity==='ponctuel') return 0;
-  return r;
+  return 0; // ponctuel, irregulier ou frequence non definie : pas une charge mensuelle recurrente
 }
 
 function _catNature(label) {
