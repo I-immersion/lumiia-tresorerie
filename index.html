@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.69</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.70</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.69</div>
+      <div class="header-version">v3.70</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -2640,7 +2640,7 @@ window.renderCAChart = function() {
   const futureMonthKeys = [];
   for (let i = 1; i <= _caFut; i++) {
     const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
-    futureMonthKeys.push(d.toISOString().substring(0,7));
+    futureMonthKeys.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); // v3.70 — local, pas toISOString (évitait le doublon du mois courant en réalisé + prévision)
   }
   // En mode semaine, générer les vraies semaines des mois futurs
   const futurePeriodKeys = _caGran === 'semaine'
