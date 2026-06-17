@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.10</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.11</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v4.10</div>
+      <div class="header-version">v4.11</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -1005,6 +1005,7 @@ function renderCashflowChart(txs) {
     const outQ = qMonths.reduce((s,m)=>s+(byMonth[m]?.out||0),0);
     return Math.max(0, caQ * 0.20 - outQ * (20/120));
   }
+  window._tvaAtMonth = tvaAtMonth; // exposer pour le point mort (mois de TVA)
 
   const futureMonthsCount = PROJ_MONTHS[currentProjection] || 6;
   const futureKeys = [];
@@ -1409,8 +1410,15 @@ function renderPointMort() {
   if(!wrap) return;
   const mk = localDateStr(new Date()).substring(0,7);
   const fixes = (typeof chargesOpex==='function') ? chargesOpex(_cd) : 0;
-  const credit = (typeof creditAt==='function') ? creditAt(mk) : 0;
-  const tva = (typeof tvaAtMonth==='function') ? tvaAtMonth(mk) : 0;
+  // v4.11 — credit du mois calcule directement (creditAt est local a la projection, inaccessible ici -> renvoyait 0)
+  let credit = 0;
+  const _sched = window._creditSchedule || {};
+  for (const _loan of Object.values(_sched)) {
+    for (const _ph of Object.values(_loan.phases||{})) {
+      if (mk >= _ph.from && mk <= _ph.to) { credit += parseFloat(_ph.monthly)||0; break; }
+    }
+  }
+  const tva = (typeof window._tvaAtMonth==='function') ? window._tvaAtMonth(mk) : 0;
   const seuil = fixes + credit + tva;
   const tx = window._allTx || [];
   const isInt = l => /virement interne/i.test(l||'') || /^i-immersion$/i.test((l||'').trim());
