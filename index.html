@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.71</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.0</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.71</div>
+      <div class="header-version">v4.0</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -277,6 +277,7 @@
   </div>
 
   <div class="content" id="tabContentDashboard">
+    <div id="dashTodo" style="margin-bottom:20px"></div>
     <!-- BANQUES -->
     <div style="display:flex;align-items:center;gap:8px;margin-bottom:12px">
       <div class="section-title" style="margin-bottom:0">Comptes bancaires</div>
@@ -2051,6 +2052,94 @@ function renderComparatif() {
 }
 window._renderComparatif = renderComparatif;
 
+// v4.0 — Encart "À compléter" : regroupe en haut du pilotage tout ce qui attend
+// une action d'Emmanuel (qualifier des transactions, factures clients en retard,
+// prévisions de CA non saisies). Objectif : ne plus jamais rater une rentrée comme Audeval.
+window._renderDashTodo = async function() {
+  const el = document.getElementById('dashTodo');
+  if (!el) return;
+  if (!auth.currentUser) { setTimeout(() => window._renderDashTodo(), 1200); return; }
+  const fmtEur = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+  try {
+    // 1. Factures clients en retard (Pennylane, mises en cache pour la session)
+    let invoices = window._invoicesCache;
+    if (!invoices) {
+      const token = await auth.currentUser.getIdToken();
+      const r = await fetch(PROXY + '/customer_invoices?limit=100', {headers:{Authorization:'Bearer '+token}}).then(r=>r.json());
+      invoices = r.items || [];
+      window._invoicesCache = invoices;
+    }
+    // Exclure les factures "late" déjà encaissées mais non rapprochées dans Pennylane
+    // (sinon on afficherait "à encaisser" un montant déjà rentré, ex. Audeval).
+    const txAll = window._allTx || window._cachedTx || [];
+    const paidLabels = txAll.map(t => (t.label||'').toUpperCase());
+    const dejaEncaissee = f => {
+      if (parseFloat(f.remaining_amount_with_tax) === 0) return true;
+      const ref = (f.invoice_number||'').toUpperCase().trim();
+      return !!ref && paidLabels.some(l => l.includes(ref));
+    };
+    const late = invoices.filter(f => f.status === 'late' && !dejaEncaissee(f));
+    const lateAmount = late.reduce((s,f)=>s+(parseFloat(f.remaining_amount_with_tax||f.amount)||0),0);
+
+    // 2. Prévisions de CA manquantes (6 prochains mois sans aucune saisie)
+    let est = {};
+    try { est = (await get(ref(db,'tresorerie/ca_estimates'))).val() || {}; } catch(e){}
+    const now = new Date();
+    const missing = [];
+    for (let i=1;i<=6;i++){
+      const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
+      const mk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
+      const me = est[mk];
+      if (!(me && Object.values(me).some(v=>parseFloat(v)>0))) missing.push(d.toLocaleDateString('fr-FR',{month:'short'}));
+    }
+
+    // 3. Transactions à qualifier (si l'Analyse CA a déjà chargé les données en session)
+    let qCount = null, qAmount = 0;
+    const txs = window._cachedTx;
+    if (Array.isArray(txs) && txs.length) {
+      const classes = window._txClassifications_public || {};
+      qCount = 0;
+      txs.forEach(t => {
+        const s = classes[String(t.id)];
+        if (s && s.type==='ca' && s.subtype) return;
+        if (s && s.type==='hors_ca') return;
+        if (_autoClassify(t.label, parseFloat(t.amount)) === 'hors_ca') return;
+        qCount++; qAmount += parseFloat(t.amount)||0;
+      });
+    }
+
+    const line = (icon, label, value, warn, onclick) =>
+      '<div ' + (onclick?('onclick="'+onclick+'" style="cursor:pointer;'):'style="')
+      + 'display:flex;align-items:center;gap:12px;padding:11px 14px;border-bottom:1px solid var(--border)">'
+      + '<div style="font-size:18px;width:24px;text-align:center">'+icon+'</div>'
+      + '<div style="flex:1;min-width:0"><div style="font-size:13px;color:var(--text);font-weight:600">'+label+'</div></div>'
+      + '<div style="font-size:12px;color:'+(warn?'var(--warn)':'var(--muted2)')+';white-space:nowrap;text-align:right">'+value+'</div>'
+      + (onclick?'<div style="color:var(--muted2);font-size:16px;margin-left:4px">\u203a</div>':'')
+      + '</div>';
+
+    let rows = '';
+    if (qCount === null) {
+      rows += line('\ud83c\udff7\ufe0f','Transactions \u00e0 qualifier','V\u00e9rifier',false,"window._setTab('analyse')");
+    } else if (qCount > 0) {
+      rows += line('\ud83c\udff7\ufe0f', qCount+' transaction'+(qCount>1?'s':'')+' \u00e0 qualifier', fmtEur(qAmount)+' non affect\u00e9s', true, "window._setTab('analyse')");
+    }
+    if (late.length > 0) {
+      rows += line('\u23f0', late.length+' facture'+(late.length>1?'s':'')+' client en retard', fmtEur(lateAmount)+' \u00e0 encaisser', true, null);
+    }
+    if (missing.length > 0) {
+      rows += line('\ud83d\udcc8','Pr\u00e9visions de CA \u00e0 compl\u00e9ter', missing.join(', '), false, "window._setTab('analyse')");
+    }
+
+    if (!rows) {
+      el.innerHTML = '<div style="background:rgba(74,222,128,0.08);border:1px solid rgba(74,222,128,0.3);border-radius:10px;padding:12px 16px;font-size:13px;color:var(--accent)">\u2713 Tout est \u00e0 jour \u2014 rien \u00e0 compl\u00e9ter</div>';
+      return;
+    }
+    el.innerHTML = '<div class="section-title" style="margin-bottom:8px">\u00c0 compl\u00e9ter</div>'
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">' + rows + '</div>';
+  } catch(e) { console.warn('dashTodo', e); el.innerHTML = ''; }
+};
+setTimeout(() => { if (window._renderDashTodo) window._renderDashTodo(); }, 1800);
+
 window._setTab = (tab) => {
   document.getElementById('tabContentDashboard').style.display = tab==='dashboard' ? '' : 'none';
   document.getElementById('tabContentCharges').style.display   = tab==='charges'   ? '' : 'none';
@@ -2060,6 +2149,7 @@ window._setTab = (tab) => {
   document.getElementById('tabAnalyse').classList.toggle('active',   tab==='analyse');
   if(tab==='analyse') window._loadAnalyse();
   if(tab==='dashboard' && (window._cachedTx||[]).length) renderComparatif();
+  if(tab==='dashboard' && window._renderDashTodo) window._renderDashTodo();
 };
 
 // ── Chargement des catégories PL ──
