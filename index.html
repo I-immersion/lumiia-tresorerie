@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.67</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v3.68</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v3.67</div>
+      <div class="header-version">v3.68</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -2903,6 +2903,32 @@ window._loadAnalyse = async () => {
       const ruleSubtype = auto === 'ca' ? applyRules(t.label) : null;
       return { ...t, type: auto || 'inconnu', subtype: ruleSubtype };
     });
+
+    // v3.68 — Persistance auto des classifications CA reconnues par les règles existantes.
+    // Sans ça, une période non consultée (transactions chargées mais jamais qualifiées)
+    // reste invisible dans le graphe CA et le tableau de prévision, qui ne lisent que
+    // les classifications sauvegardées dans Firebase (et non le calcul en mémoire).
+    try {
+      const _autoBatch = {};
+      let _autoCount = 0;
+      entrees.forEach(t => {
+        const id = String(t.id);
+        if(_txClassifications[id]) return;                         // déjà classée (manuel ou auto) -> ne pas écraser
+        const auto = _autoClassify(t.label, parseFloat(t.amount)); // 'ca' | 'hors_ca' | null
+        if(auto !== 'ca') return;                                  // on ne persiste QUE les CA sûrs
+        const sub = applyRules(t.label);                           // activité via règle apprise
+        if(!sub) return;                                           // pas d'activité déterminée -> laisser en warn pour décision manuelle
+        const v = { type: 'ca', subtype: sub };
+        _txClassifications[id] = v;
+        _autoBatch['tresorerie/tx_classifications/' + id] = v;
+        _autoCount++;
+      });
+      if(_autoCount > 0) {
+        await update(ref(db, '/'), _autoBatch);
+        window._txClassifications_public = _txClassifications;
+        console.log('v3.68 auto-classif : ' + _autoCount + ' transaction(s) CA persistee(s) via regles');
+      }
+    } catch(e) { console.warn('v3.68 auto-classif echec', e); }
 
     // CA par mois
     const byMonth = {};
