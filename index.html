@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.0</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.1</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v4.0</div>
+      <div class="header-version">v4.1</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -455,23 +455,23 @@
       <div class="section-title" style="margin-bottom:0">CA par activit&eacute;</div>
       <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
         <div class="period-btns">
-          <button class="period-btn active" data-cagran="semaine" onclick="setCAGran('semaine')">Semaines</button>
-          <button class="period-btn" data-cagran="mois" onclick="setCAGran('mois')">Mois</button>
+          <button class="period-btn" data-cagran="semaine" onclick="setCAGran('semaine')">Semaines</button>
+          <button class="period-btn active" data-cagran="mois" onclick="setCAGran('mois')">Mois</button>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:10.5px;color:var(--muted2);font-weight:600;white-space:nowrap">Pass&eacute;</span>
           <div class="period-btns">
-            <button class="period-btn active" data-cawin="4" onclick="setCAWin(4)">4S</button>
+            <button class="period-btn" data-cawin="4" onclick="setCAWin(4)">4S</button>
             <button class="period-btn" data-cawin="8" onclick="setCAWin(8)">8S</button>
             <button class="period-btn" data-cawin="12" onclick="setCAWin(12)">3M</button>
-            <button class="period-btn" data-cawin="24" onclick="setCAWin(24)">6M</button>
+            <button class="period-btn active" data-cawin="24" onclick="setCAWin(24)">6M</button>
           </div>
         </div>
         <div style="display:flex;align-items:center;gap:6px">
           <span style="font-size:10.5px;color:rgba(96,165,250,0.8);font-weight:600;white-space:nowrap">Pr&eacute;vision</span>
           <div class="period-btns">
-            <button class="period-btn active" data-cafut="1" onclick="setCAFut(1)">1M</button>
-            <button class="period-btn" data-cafut="3" onclick="setCAFut(3)">3M</button>
+            <button class="period-btn" data-cafut="1" onclick="setCAFut(1)">1M</button>
+            <button class="period-btn active" data-cafut="3" onclick="setCAFut(3)">3M</button>
             <button class="period-btn" data-cafut="6" onclick="setCAFut(6)">6M</button>
           </div>
         </div>
@@ -1383,6 +1383,9 @@ function renderBanks(banks) {
 
   function cleanBankName(name) {
     if(!name) return 'Compte';
+    const _n = name.toLowerCase();
+    if(_n.includes('contrat pro global')) return 'CIC';        // v4.1 — compte courant principal
+    if(_n.includes('business 5136')) return 'CIC Carte';
     if(name.length > 30) {
       const m = name.match(/^(\w+\s+\w+)/);
       return m ? m[1] : name.substring(0, 28) + '\u2026';
@@ -2055,6 +2058,7 @@ window._renderComparatif = renderComparatif;
 // v4.0 — Encart "À compléter" : regroupe en haut du pilotage tout ce qui attend
 // une action d'Emmanuel (qualifier des transactions, factures clients en retard,
 // prévisions de CA non saisies). Objectif : ne plus jamais rater une rentrée comme Audeval.
+window._toggleLateDetail = function(){ const d=document.getElementById('lateDetail'); if(d) d.style.display = (d.style.display==='none'?'block':'none'); };
 window._renderDashTodo = async function() {
   const el = document.getElementById('dashTodo');
   if (!el) return;
@@ -2086,7 +2090,7 @@ window._renderDashTodo = async function() {
     try { est = (await get(ref(db,'tresorerie/ca_estimates'))).val() || {}; } catch(e){}
     const now = new Date();
     const missing = [];
-    for (let i=1;i<=6;i++){
+    for (let i=1;i<=3;i++){   // v4.1 — n'alerter que si l'un des 3 prochains mois est vide
       const d = new Date(now.getFullYear(), now.getMonth()+i, 1);
       const mk = d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
       const me = est[mk];
@@ -2118,13 +2122,26 @@ window._renderDashTodo = async function() {
       + '</div>';
 
     let rows = '';
+    let lateDetailHtml = '';
     if (qCount === null) {
-      rows += line('\ud83c\udff7\ufe0f','Transactions \u00e0 qualifier','V\u00e9rifier',false,"window._setTab('analyse')");
+      rows += line('\ud83c\udff7\ufe0f','Transactions \u00e0 qualifier','V\u00e9rifier',false,"window._setTab('analyse');setTimeout(window._goToQualify,350)");
     } else if (qCount > 0) {
-      rows += line('\ud83c\udff7\ufe0f', qCount+' transaction'+(qCount>1?'s':'')+' \u00e0 qualifier', fmtEur(qAmount)+' non affect\u00e9s', true, "window._setTab('analyse')");
+      rows += line('\ud83c\udff7\ufe0f', qCount+' transaction'+(qCount>1?'s':'')+' \u00e0 qualifier', fmtEur(qAmount)+' non affect\u00e9s', true, "window._setTab('analyse');setTimeout(window._goToQualify,350)");
     }
     if (late.length > 0) {
-      rows += line('\u23f0', late.length+' facture'+(late.length>1?'s':'')+' client en retard', fmtEur(lateAmount)+' \u00e0 encaisser', true, null);
+      rows += line('\u23f0', late.length+' facture'+(late.length>1?'s':'')+' client en retard', fmtEur(lateAmount)+' \u00e0 encaisser', true, "window._toggleLateDetail()");
+      lateDetailHtml = '<div id="lateDetail" style="display:none;background:rgba(239,68,68,0.06);border:1px solid rgba(239,68,68,0.25);border-radius:10px;margin-top:8px;overflow:hidden">'
+        + late.map(f => {
+            const ml = (f.label||'').match(/^Facture\s+(.+?)\s+-\s+F-/i);
+            const nom = ml ? ml[1] : (f.label||'').replace(/\s*\(label g\u00e9n\u00e9r\u00e9\)\s*/i,'').slice(0,34) || 'Client';
+            const ech = f.deadline ? new Date(f.deadline+'T00:00:00').toLocaleDateString('fr-FR',{day:'2-digit',month:'short',year:'2-digit'}) : '\u2014';
+            const mnt = fmtEur(parseFloat(f.remaining_amount_with_tax||f.amount)||0);
+            return '<div style="display:flex;align-items:center;gap:10px;padding:9px 14px;border-bottom:1px solid rgba(239,68,68,0.12)">'
+              + '<div style="flex:1;min-width:0"><div style="font-size:12px;color:var(--text);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">'+nom+'</div>'
+              + '<div style="font-size:10.5px;color:var(--muted2)">'+(f.invoice_number||'')+' \u00b7 \u00e9ch\u00e9ance '+ech+'</div></div>'
+              + '<div style="font-size:12px;font-weight:600;color:var(--danger);white-space:nowrap">'+mnt+'</div></div>';
+          }).join('')
+        + '</div>';
     }
     if (missing.length > 0) {
       rows += line('\ud83d\udcc8','Pr\u00e9visions de CA \u00e0 compl\u00e9ter', missing.join(', '), false, "window._setTab('analyse')");
@@ -2135,7 +2152,8 @@ window._renderDashTodo = async function() {
       return;
     }
     el.innerHTML = '<div class="section-title" style="margin-bottom:8px">\u00c0 compl\u00e9ter</div>'
-      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">' + rows + '</div>';
+      + '<div style="background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden">' + rows + '</div>'
+      + lateDetailHtml;
   } catch(e) { console.warn('dashTodo', e); el.innerHTML = ''; }
 };
 setTimeout(() => { if (window._renderDashTodo) window._renderDashTodo(); }, 1800);
@@ -2481,9 +2499,9 @@ function _ce(s){return(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace
 
 // ═══════════════════════════════════════════════════════
 // ANALYSE CA — v3.67
-let _caGran = 'semaine'; // 'semaine' | 'mois'
-let _caWin  = 4;  // semaines ou mois passés à afficher
-let _caFut  = 1;  // mois futurs (prévisions) à afficher
+let _caGran = 'mois'; // 'semaine' | 'mois'
+let _caWin  = 24;  // semaines ou mois passés à afficher
+let _caFut  = 3;  // mois futurs (prévisions) à afficher
 
 window.setCAGran = function(g) {
   _caGran = g;
