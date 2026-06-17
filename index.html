@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.11</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.12</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v4.11</div>
+      <div class="header-version">v4.12</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -275,6 +275,7 @@
     <button class="tab-btn" id="tabCharges" onclick="window._setTab('charges')">&#128200; Charges r&eacute;currentes <span id="chargesNavBadge" class="tab-badge" style="display:none"></span></button>
     <button class="tab-btn" id="tabAnalyse" onclick="window._setTab('analyse')">&#128269; Analyse CA</button>
     <button class="tab-btn" id="tabFactures" onclick="window._setTab('factures')">&#129534; Factures</button>
+    <button class="tab-btn" id="tabPrevisionnel" onclick="window._setTab('previsionnel')">&#128197; Pr&eacute;visionnel</button>
   </div>
 
   <div class="content" id="tabContentDashboard">
@@ -2301,7 +2302,103 @@ window._setTab = (tab) => {
   const _fc=document.getElementById('tabContentFactures'); if(_fc) _fc.style.display = tab==='factures' ? '' : 'none';
   const _fb=document.getElementById('tabFactures'); if(_fb) _fb.classList.toggle('active', tab==='factures');
   if(tab==='factures' && window._renderFactures) window._renderFactures();
+  const _pc=document.getElementById('tabContentPrevisionnel'); if(_pc) _pc.style.display = tab==='previsionnel' ? '' : 'none';
+  const _pb=document.getElementById('tabPrevisionnel'); if(_pb) _pb.classList.toggle('active', tab==='previsionnel');
+  if(tab==='previsionnel' && window._renderPrevisionnel) window._renderPrevisionnel();
 };
+
+window._renderPrevisionnel = function(){
+  let cont = document.getElementById('tabContentPrevisionnel');
+  if(!cont){ cont=document.createElement('div'); cont.className='content'; cont.id='tabContentPrevisionnel'; cont.style.display='none'; const dash=document.getElementById('tabContentDashboard'); if(dash&&dash.parentNode) dash.parentNode.appendChild(cont); }
+
+  const now=new Date();
+  const exY=(now.getMonth()+1)>=4?now.getFullYear():now.getFullYear()-1;
+  const months=[]; for(let i=0;i<12;i++){ const d=new Date(exY,3+i,1); months.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')); }
+  const nowKey=now.getFullYear()+'-'+String(now.getMonth()+1).padStart(2,'0');
+
+  const classes=window._txClassifications_public||{};
+  const tx=window._cachedTx||window._allTx||[];
+  const realized={};
+  tx.forEach(t=>{ const m=(t.date||'').substring(0,7); const s=classes[String(t.id)]; if(!s||s.type!=='ca'||!s.subtype) return; if(!PREV_SUBTYPES.includes(s.subtype)) return; realized[m]=(realized[m]||0)+(parseFloat(t.amount)||0); });
+
+  const est=window._prevEstimates||{};
+  const prevSum=m=>{ const e=est[m]; return e?Object.values(e).reduce((s,v)=>s+(parseFloat(v)||0),0):0; };
+  const pastReal=months.filter(m=>m<nowKey&&realized[m]>0).slice(-3).map(m=>realized[m]);
+  const avgIn=pastReal.length?pastReal.reduce((a,b)=>a+b,0)/pastReal.length:0;
+
+  const fixes=(typeof chargesOpex==='function')?chargesOpex(_cd):0;
+  const sched=window._creditSchedule||{};
+  const creditAt=mk=>{ let t=0; for(const loan of Object.values(sched)) for(const ph of Object.values(loan.phases||{})) if(mk>=ph.from&&mk<=ph.to){t+=parseFloat(ph.monthly)||0;break;} return t; };
+
+  let cumul=0;
+  const rows=months.map(m=>{
+    const isCur=m===nowKey, isFut=m>nowKey;
+    let ca,caType;
+    if(isFut){ const p=prevSum(m); ca=p>0?p:avgIn; caType=p>0?'prev':'est'; }
+    else { ca=realized[m]||0; caType=isCur?'cur':'real'; }
+    const cr=creditAt(m), sorties=fixes+cr, res=ca-sorties;
+    cumul+=res;
+    return {m,ca,caType,fixes,cr,sorties,res,cumul,isFut,isCur};
+  });
+
+  const totCA=rows.reduce((s,r)=>s+r.ca,0), totSor=rows.reduce((s,r)=>s+r.sorties,0), totRes=totCA-totSor;
+  const fmt=v=>new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+  const fmtMo=m=>new Date(m+'-15').toLocaleDateString('fr-FR',{month:'short'});
+  const firstNeg=rows.find(r=>r.res<0);
+
+  const maxV=Math.max(1,...rows.map(r=>Math.max(r.ca,r.sorties)));
+  const W=780,H=210,padB=26,padT=10,plotH=H-padB-padT,gw=W/12;
+  let bars='';
+  rows.forEach((r,i)=>{
+    const cx=i*gw+gw/2, bw=gw*0.28;
+    const hCA=Math.round(r.ca/maxV*plotH), hSo=Math.round(r.sorties/maxV*plotH);
+    const yCA=padT+plotH-hCA, ySo=padT+plotH-hSo, opa=r.isFut?'0.5':'1';
+    bars+='<rect x="'+(cx-bw-2)+'" y="'+yCA+'" width="'+bw+'" height="'+hCA+'" rx="2" fill="#34d399" opacity="'+opa+'"></rect>';
+    bars+='<rect x="'+(cx+2)+'" y="'+ySo+'" width="'+bw+'" height="'+hSo+'" rx="2" fill="#f87171" opacity="'+opa+'"></rect>';
+    bars+='<text x="'+cx+'" y="'+(H-8)+'" text-anchor="middle" font-size="10" fill="'+(r.isCur?'#fff':'rgba(255,255,255,0.45)')+'">'+fmtMo(r.m)+'</text>';
+  });
+  const svg='<svg viewBox="0 0 '+W+' '+H+'" style="width:100%;height:auto;display:block">'+bars+'</svg>';
+
+  const heads=['CA','Charges fixes','Cr\u00e9dits','Sorties','R\u00e9sultat','Tr\u00e9so cumul\u00e9e'];
+  const th='<th style="text-align:left;padding:7px 10px;font-size:11px;color:var(--muted2);font-weight:600">Mois</th>'
+    +heads.map(h=>'<th style="text-align:right;padding:7px 10px;font-size:11px;color:var(--muted2);font-weight:600;white-space:nowrap">'+h+'</th>').join('');
+  const trs=rows.map(r=>{
+    const bg=r.isFut?'background:rgba(96,165,250,0.05)':(r.isCur?'background:rgba(255,255,255,0.04)':'');
+    const tag=r.isFut?'<span style="font-size:9px;color:rgba(96,165,250,0.7);margin-left:6px">'+(r.caType==='est'?'estim\u00e9':'pr\u00e9vu')+'</span>':(r.isCur?'<span style="font-size:9px;color:rgba(255,255,255,0.4);margin-left:6px">en cours</span>':'');
+    const resC=r.res>=0?'#34d399':'#f87171', cumC=r.cumul>=0?'var(--text)':'#f87171';
+    const moLbl=new Date(r.m+'-15').toLocaleDateString('fr-FR',{month:'long',year:'2-digit'});
+    return '<tr style="'+bg+';border-top:1px solid rgba(255,255,255,0.05)">'
+      +'<td style="padding:7px 10px;font-size:12.5px;color:var(--text);text-transform:capitalize;white-space:nowrap">'+moLbl+tag+'</td>'
+      +'<td style="padding:7px 10px;font-size:12.5px;text-align:right;color:var(--text)">'+fmt(r.ca)+'</td>'
+      +'<td style="padding:7px 10px;font-size:12.5px;text-align:right;color:var(--muted2)">'+fmt(r.fixes)+'</td>'
+      +'<td style="padding:7px 10px;font-size:12.5px;text-align:right;color:var(--muted2)">'+(r.cr>0?fmt(r.cr):'\u2014')+'</td>'
+      +'<td style="padding:7px 10px;font-size:12.5px;text-align:right;color:var(--text)">'+fmt(r.sorties)+'</td>'
+      +'<td style="padding:7px 10px;font-size:13px;text-align:right;font-weight:700;color:'+resC+'">'+(r.res>=0?'+':'')+fmt(r.res)+'</td>'
+      +'<td style="padding:7px 10px;font-size:12.5px;text-align:right;color:'+cumC+'">'+fmt(r.cumul)+'</td>'
+      +'</tr>';
+  }).join('');
+  const totRow='<tr style="border-top:2px solid rgba(255,255,255,0.15)">'
+    +'<td style="padding:9px 10px;font-size:12.5px;font-weight:700;color:var(--text)">Total exercice</td>'
+    +'<td style="padding:9px 10px;font-size:12.5px;text-align:right;font-weight:700;color:var(--text)">'+fmt(totCA)+'</td>'
+    +'<td colspan="2"></td>'
+    +'<td style="padding:9px 10px;font-size:12.5px;text-align:right;font-weight:700;color:var(--text)">'+fmt(totSor)+'</td>'
+    +'<td style="padding:9px 10px;font-size:13px;text-align:right;font-weight:800;color:'+(totRes>=0?'#34d399':'#f87171')+'">'+(totRes>=0?'+':'')+fmt(totRes)+'</td>'
+    +'<td></td></tr>';
+
+  let synth;
+  if(firstNeg){ synth='R\u00e9sultat cumul\u00e9 sur l\u2019exercice : <b style="color:'+(totRes>=0?'#34d399':'#f87171')+'">'+(totRes>=0?'+':'')+fmt(totRes)+'</b>. \u26a0\ufe0f Premier mois d\u00e9ficitaire : <b style="text-transform:capitalize">'+new Date(firstNeg.m+'-15').toLocaleDateString('fr-FR',{month:'long',year:'numeric'})+'</b> ('+fmt(firstNeg.res)+').'; }
+  else { synth='R\u00e9sultat cumul\u00e9 sur l\u2019exercice : <b style="color:#34d399">+'+fmt(totRes)+'</b>. Avec le CA pr\u00e9vu, tous les mois couvrent leurs charges fixes et cr\u00e9dits.'; }
+
+  cont.innerHTML='<div class="card" style="padding:20px 22px">'
+    +'<div style="display:flex;align-items:baseline;justify-content:space-between;flex-wrap:wrap;gap:8px;margin-bottom:6px"><h2 style="margin:0;font-size:16px;color:var(--text)">\ud83d\udcc5 Pr\u00e9visionnel \u2014 exercice avril '+exY+' \u2192 mars '+(exY+1)+'</h2></div>'
+    +'<div style="margin-bottom:14px;font-size:13px;color:var(--text);line-height:1.5">'+synth+'</div>'
+    +'<div style="display:flex;gap:16px;align-items:center;margin-bottom:6px;font-size:11px;color:var(--muted2);flex-wrap:wrap"><span><span style="display:inline-block;width:10px;height:10px;background:#34d399;border-radius:2px;margin-right:5px;vertical-align:middle"></span>CA</span><span><span style="display:inline-block;width:10px;height:10px;background:#f87171;border-radius:2px;margin-right:5px;vertical-align:middle"></span>Sorties (charges fixes + cr\u00e9dits)</span><span style="opacity:.6">Barres p\u00e2les = pr\u00e9vision</span></div>'
+    +svg
+    +'<div style="overflow-x:auto;margin-top:16px"><table style="width:100%;border-collapse:collapse"><thead><tr>'+th+'</tr></thead><tbody>'+trs+totRow+'</tbody></table></div>'
+    +'<div style="font-size:11px;color:var(--muted2);margin-top:12px;line-height:1.5">R\u00e9sultat = CA \u2212 charges fixes \u2212 cr\u00e9dits. <b>Hors TVA et hors achats variables</b> (boissons, prestations\u2026), qui viendront affiner ce r\u00e9sultat plus tard. CA des mois pass\u00e9s = encaiss\u00e9 r\u00e9el ; mois futurs = tes pr\u00e9visions saisies dans Analyse CA (sinon moyenne des 3 derniers mois). Les cr\u00e9dits montent par paliers : CIC en juillet, REDA en ao\u00fbt, BPI en octobre.</div>'
+    +'</div>';
+};
+
 
 // ── Chargement des catégories PL ──
 async function loadPLCategories() {
