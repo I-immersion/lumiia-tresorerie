@@ -245,7 +245,7 @@
   <div class="login-card">
     <div class="login-logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
     <div class="login-subtitle">Connectez-vous pour acc&eacute;der au tableau de bord</div>
-    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.6</div>
+    <div style="font-size:10px;color:var(--muted2);opacity:.5;margin-top:-24px;margin-bottom:28px;text-align:right;font-family:'DM Sans',sans-serif">v4.9</div>
     <div class="login-field"><label>Adresse e-mail</label>
       <input type="email" id="loginEmail" placeholder="contact@lumiia.fr" autocomplete="email"></div>
     <div class="login-field"><label>Mot de passe</label>
@@ -261,7 +261,7 @@
   <div class="header">
     <div class="header-left">
       <div class="logo">Lumiia <span>&middot;</span> Tr&eacute;sorerie</div>
-      <div class="header-version">v4.6</div>
+      <div class="header-version">v4.9</div>
     </div>
     <div class="header-right">
       <div class="badge loading" id="syncBadge">&#9203; Chargement&hellip;</div>
@@ -343,6 +343,10 @@
         </div>
       </div>
     </div>
+
+    <!-- POINT MORT DU MOIS -->
+    <div class="section-title" style="margin-top:4px">Point mort du mois</div>
+    <div id="pointMortWrap" style="background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:16px 18px;margin-bottom:20px"><div class="skeleton" style="height:60px"></div></div>
 
     <!-- COMPARATIF CA VS CHARGES -->
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px;margin-top:4px">
@@ -1364,6 +1368,35 @@ function renderDonutSVG(items, grandTotal, centerLabel, fmtK) {
 }
 
 
+function renderPointMort() {
+  const wrap = document.getElementById('pointMortWrap');
+  if(!wrap) return;
+  const mk = localDateStr(new Date()).substring(0,7);
+  const fixes = (typeof chargesOpex==='function') ? chargesOpex(_cd) : 0;
+  const credit = (typeof creditAt==='function') ? creditAt(mk) : 0;
+  const tva = (typeof tvaAtMonth==='function') ? tvaAtMonth(mk) : 0;
+  const seuil = fixes + credit + tva;
+  const tx = window._allTx || [];
+  const isInt = l => /virement interne/i.test(l||'') || /^i-immersion$/i.test((l||'').trim());
+  const isFin = l => /deblocage|d\u00e9blocage|mise.{0,5}disposition|bpi\s?france|r\u00e9da|\breda\b|cic.*pr[e\u00ea]t|pr[e\u00ea]t.*cic/i.test(l||'');
+  let caMois = 0;
+  tx.forEach(t => { const a=parseFloat(t.amount)||0; if(a<=0) return; if(isInt(t.label)||isFin(t.label)) return; if((t.date||'').substring(0,7)!==mk) return; caMois += a; });
+  const fmtB = v => new Intl.NumberFormat('fr-FR',{style:'currency',currency:'EUR',maximumFractionDigits:0}).format(v);
+  const pct = seuil>0 ? Math.min(100, Math.round(caMois/seuil*100)) : 0;
+  const atteint = caMois >= seuil && seuil > 0;
+  const reste = Math.max(0, seuil - caMois);
+  const surplus = Math.max(0, caMois - seuil);
+  const barCol = atteint ? 'var(--accent)' : 'var(--warn)';
+  const moisLabel = new Date(mk+'-01T00:00:00').toLocaleDateString('fr-FR',{month:'long',year:'numeric'});
+  wrap.innerHTML =
+    `<div style=\"display:flex;justify-content:space-between;align-items:baseline;flex-wrap:wrap;gap:8px;margin-bottom:10px\">`
+    + `<div style=\"font-size:13px;color:var(--muted2)\">Frais \u00e0 couvrir en ${moisLabel} : <strong style=\"color:var(--text)\">${fmtB(seuil)}</strong></div>`
+    + `<div style=\"font-size:13px;color:${atteint?'var(--accent)':'var(--warn)'};font-weight:700\">${atteint?('Seuil franchi \u00b7 +'+fmtB(surplus)):('Reste '+fmtB(reste)+' \u00e0 encaisser')}</div></div>`
+    + `<div style=\"height:16px;background:var(--border);border-radius:8px;overflow:hidden\"><div style=\"height:100%;width:${pct}%;background:${barCol};border-radius:8px;transition:width .3s\"></div></div>`
+    + `<div style=\"display:flex;justify-content:space-between;font-size:11.5px;color:var(--muted2);margin-top:6px\"><span>Encaiss\u00e9 : <strong style=\"color:var(--text)\">${fmtB(caMois)}</strong> (${pct}%)</span><span>Fixes ${fmtB(fixes)} + cr\u00e9dit ${fmtB(credit)}${tva>0?(' + TVA '+fmtB(tva)):''}</span></div>`
+    + `<div style=\"font-size:11px;color:var(--muted2);margin-top:8px;font-style:italic\">Seuil = tes frais incompressibles. Tes achats (boissons\u2026) se d\u00e9duisent ensuite de ta marge.</div>`;
+}
+
 function renderBilan(txs) {
   const wrap = document.getElementById('bilanWrap');
   if(!wrap) return;
@@ -1621,6 +1654,7 @@ async function load() {
     renderBanks(banks);
     renderCharts(allTx);
     renderKPIs(invs, sups, currentPeriod);
+    renderPointMort();
     renderTxList(allTx);
 
     // Charger l'Analyse CA en arrière-plan (non bloquant)
@@ -1660,6 +1694,7 @@ function initChargesModule() {
     _cd = {};
     Object.entries(raw).forEach(([id, c]) => { _cd[id] = {...c, id}; });
     renderCharges(_cd);
+    if(typeof renderPointMort==='function') renderPointMort();
   });
 }
 
@@ -2216,6 +2251,7 @@ window._setTab = (tab) => {
   if(tab==='analyse') window._loadAnalyse();
   if(tab==='dashboard' && (window._cachedTx||[]).length) renderComparatif();
   if(tab==='dashboard' && window._renderDashTodo) window._renderDashTodo();
+  if(tab==='dashboard' && typeof renderPointMort==='function') renderPointMort();
   const _fc=document.getElementById('tabContentFactures'); if(_fc) _fc.style.display = tab==='factures' ? '' : 'none';
   const _fb=document.getElementById('tabFactures'); if(_fb) _fb.classList.toggle('active', tab==='factures');
   if(tab==='factures' && window._renderFactures) window._renderFactures();
@@ -2794,6 +2830,9 @@ window.renderCAChart = function() {
       const d = new Date(now.getFullYear(), now.getMonth()-i, 1);
       currentKeys.push(d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0'));
     }
+    // v4.8 — plancher au debut d'exercice (bilan au 31/03) : ne jamais afficher avant avril 2026
+    const EXERCICE_DEBUT = '2026-04';
+    currentKeys = currentKeys.filter(k => k >= EXERCICE_DEBUT);
   }
 
   if (!currentKeys.length) {
@@ -3287,6 +3326,11 @@ window._loadAnalyse = async () => {
     const toQualify = classified.filter(t=>t.type==='inconnu').sort((a,b)=>b.date.localeCompare(a.date));
     const countEl = document.getElementById('analyseQualifyCount');
     if(countEl) countEl.textContent = toQualify.length ? '(' + toQualify.length + ' en attente)' : '';
+    // v4.9 — n'afficher la section 'a qualifier' que s'il reste des transactions a qualifier
+    const _titreQ = countEl ? countEl.closest('.section-title') : null;
+    const _listeQ = document.getElementById('analyseQualifyList');
+    if(_titreQ) _titreQ.style.display = toQualify.length ? '' : 'none';
+    if(_listeQ) _listeQ.style.display = toQualify.length ? '' : 'none';
 
     let qHtml = '';
     if(!toQualify.length) {
